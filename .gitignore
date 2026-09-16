@@ -1,0 +1,58 @@
+# Root & General
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+*.iml
+*.log
+
+# Build artifacts & Temporary files
+build/
+bin/
+out/
+tmp/
+.gradle/
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/*/build/
+android/*/*/build/
+android/local.properties
+android/*.ipr
+android/*.iws
+android/.navigation/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+*.apk
+*.aab
+
+# Keystore & Signing
+*.keystore
+*.jks
+release.keystore
+debug.keystore
+
+# iOS / Xcode
+ios/**/*.xcodeproj/*
+!ios/**/*.xcodeproj/project.pbxproj
+!ios/**/*.xcodeproj/xcshareddata/
+ios/**/*.xcworkspace/*
+!ios/**/*.xcworkspace/contents.xcworkspacedata
+ios/**/xcuserdata/
+ios/**/DerivedData/
+ios/**/build/
+ios/**/*.moved-aside
+ios/**/*.hmap
+ios/**/Pods/
+ios/**/.build/
+ios/**/*.xcresult
+
+# Secrets & Credentials
+secrets.properties
+*.env
+*.env.local
+google-services.json
+GoogleService-Info.plist

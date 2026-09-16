@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Standard POSIX Gradle startup script
+APP_HOME=$(cd "$(dirname "$0")" && pwd -P)
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+if [ -n "$JAVA_HOME" ] ; then
+    JAVACMD="$JAVA_HOME/bin/java"
+else
+    JAVACMD="java"
+fi
+
+if [ ! -x "$JAVACMD" ] ; then
+    die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH."
+fi
+
+exec "$JAVACMD" "-Dorg.gradle.appname=gradlew" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
