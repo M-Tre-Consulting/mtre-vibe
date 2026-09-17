@@ -26,6 +26,9 @@ interface SpotifyApiService {
     suspend fun getLyrics(trackId: String): Result<Lyrics?>
     suspend fun getAvailableDevices(): Result<List<Device>>
     suspend fun transferPlayback(deviceId: String, play: Boolean): Result<Unit>
+    suspend fun startPlayback(uris: List<String>? = null, contextUri: String? = null, deviceId: String? = null): Result<Unit>
+    suspend fun pausePlayback(deviceId: String? = null): Result<Unit>
+    suspend fun resumePlayback(deviceId: String? = null): Result<Unit>
 }
 
 /**

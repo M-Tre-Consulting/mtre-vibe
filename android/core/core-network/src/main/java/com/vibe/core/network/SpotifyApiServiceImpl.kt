@@ -245,4 +245,41 @@ class SpotifyApiServiceImpl(
             }
         }
     }
+
+    override suspend fun startPlayback(
+        uris: List<String>?,
+        contextUri: String?,
+        deviceId: String?
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val body = mutableMapOf<String, Any>()
+            if (!uris.isNullOrEmpty()) {
+                body["uris"] = uris
+            } else if (!contextUri.isNullOrBlank()) {
+                body["context_uri"] = contextUri
+            }
+            val resp = retrofitApi.play(deviceId = deviceId, body = if (body.isNotEmpty()) body else null)
+            if (!resp.isSuccessful) {
+                throw IOException("Play error HTTP ${resp.code()}: ${resp.errorBody()?.string()}")
+            }
+        }
+    }
+
+    override suspend fun pausePlayback(deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.pause(deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Pause error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun resumePlayback(deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.play(deviceId = deviceId, body = null)
+            if (!resp.isSuccessful) {
+                throw IOException("Resume error HTTP ${resp.code()}")
+            }
+        }
+    }
 }

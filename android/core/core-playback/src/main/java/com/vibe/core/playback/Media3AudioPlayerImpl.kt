@@ -8,22 +8,24 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaSession
 import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -31,6 +33,7 @@ import java.io.File
 class Media3AudioPlayerImpl(
     private val context: Context,
     private val tokenProvider: (() -> String?)? = null,
+    private val remotePlaybackProvider: (suspend (List<String>) -> Result<Unit>)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 ) : VibeAudioPlayer {
 
@@ -78,6 +81,9 @@ class Media3AudioPlayerImpl(
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _playbackState.update { it.copy(isPlaying = isPlaying) }
+                    if (isPlaying) {
+                        ensureMediaServiceStarted()
+                    }
                 }
 
                 override fun onPlaybackStateChanged(state: Int) {
@@ -96,15 +102,63 @@ class Media3AudioPlayerImpl(
                     reason: Int
                 ) {
                     if (reason == Player.DISCONTINUITY_REASON_SEEK) {
-                        // Confirmed local seek discards audio queued from the old position
                         _playbackState.update { it.copy(positionMs = newPosition.positionMs) }
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    _playbackState.update { it.copy(isBuffering = false) }
+                    _playbackState.value.currentTrack?.let { current ->
+                        scope.launch {
+                            remotePlaybackProvider?.invoke(listOf(current.uri))?.onSuccess {
+                                _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
+                            }
+                        }
                     }
                 }
             })
         }
 
+    val mediaSession: MediaSession by lazy {
+        MediaSession.Builder(context, exoPlayer)
+            .setId("VibeMediaSession")
+            .build()
+    }
+
+    private fun ensureMediaServiceStarted() {
+        try {
+            val intent = android.content.Intent().setClassName(
+                context.packageName,
+                "com.vibe.app.playback.VibeMediaSessionService"
+            )
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    init {
+        // Continuous position tracker ticker for smooth UI progress
+        scope.launch {
+            while (isActive) {
+                delay(250)
+                if (exoPlayer.isPlaying) {
+                    val pos = exoPlayer.currentPosition
+                    val dur = exoPlayer.duration
+                    _playbackState.update {
+                        it.copy(
+                            positionMs = pos,
+                            durationMs = if (dur > 0L) dur else it.durationMs
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     override fun playTrack(track: Track, contextTracks: List<Track>) {
-        // Immediate metadata display while connection resolves
         _playbackState.update {
             it.copy(
                 currentTrack = track,
@@ -115,10 +169,33 @@ class Media3AudioPlayerImpl(
             )
         }
 
-        val mediaItem = buildMediaItem(track)
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
-        exoPlayer.play()
+        scope.launch {
+            val resolvedUrl = TrackAudioResolver.resolveAudioUrl(track)
+            if (!resolvedUrl.isNullOrBlank()) {
+                val mediaItem = buildMediaItem(track, resolvedUrl)
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+                exoPlayer.play()
+            } else {
+                remotePlaybackProvider?.invoke(listOf(track.uri))?.onSuccess {
+                    _playbackState.update {
+                        it.copy(
+                            isBuffering = false,
+                            isPlaying = true,
+                            isPaused = false
+                        )
+                    }
+                }?.onFailure {
+                    _playbackState.update {
+                        it.copy(
+                            isBuffering = false,
+                            isPlaying = false,
+                            isPaused = true
+                        )
+                    }
+                }
+            }
+        }
     }
 
     override fun playFilteredCollection(tracks: List<Track>, startIndex: Int) {
@@ -132,15 +209,40 @@ class Media3AudioPlayerImpl(
             it.copy(
                 currentTrack = selected,
                 isBuffering = true,
+                isPlaying = false,
                 positionMs = 0L,
                 durationMs = selected.durationMs
             )
         }
 
-        val mediaItems = playableTracks.map { buildMediaItem(it) }
-        exoPlayer.setMediaItems(mediaItems, validIndex, 0L)
-        exoPlayer.prepare()
-        exoPlayer.play()
+        scope.launch {
+            val resolvedUrl = TrackAudioResolver.resolveAudioUrl(selected)
+            if (!resolvedUrl.isNullOrBlank()) {
+                val mediaItem = buildMediaItem(selected, resolvedUrl)
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+                exoPlayer.play()
+            } else {
+                val uris = playableTracks.map { it.uri }
+                remotePlaybackProvider?.invoke(uris)?.onSuccess {
+                    _playbackState.update {
+                        it.copy(
+                            isBuffering = false,
+                            isPlaying = true,
+                            isPaused = false
+                        )
+                    }
+                }?.onFailure {
+                    _playbackState.update {
+                        it.copy(
+                            isBuffering = false,
+                            isPlaying = false,
+                            isPaused = true
+                        )
+                    }
+                }
+            }
+        }
     }
 
     override fun pause() {
@@ -149,8 +251,18 @@ class Media3AudioPlayerImpl(
     }
 
     override fun resume() {
-        exoPlayer.play()
-        _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
+        if (exoPlayer.currentMediaItem != null) {
+            exoPlayer.play()
+            _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
+        } else {
+            _playbackState.value.currentTrack?.let { current ->
+                scope.launch {
+                    remotePlaybackProvider?.invoke(listOf(current.uri))?.onSuccess {
+                        _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
+                    }
+                }
+            }
+        }
     }
 
     override fun stop() {
@@ -159,7 +271,6 @@ class Media3AudioPlayerImpl(
     }
 
     override fun seekTo(positionMs: Long) {
-        // Confirmed seek discards previously queued audio buffer from old position
         exoPlayer.seekTo(positionMs)
         _playbackState.update { it.copy(positionMs = positionMs) }
     }
@@ -212,19 +323,19 @@ class Media3AudioPlayerImpl(
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.seekTo(positionMs)
         exoPlayer.prepare()
-        // Kept paused until explicit user play
     }
 
-    private fun buildMediaItem(track: Track): MediaItem {
+    private fun buildMediaItem(track: Track, overrideUrl: String? = null): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(track.name)
             .setArtist(track.artists.joinToString(", ") { it.name })
             .setAlbumTitle(track.album.name)
             .build()
 
+        val uriString = overrideUrl ?: track.previewUrl ?: track.uri
         return MediaItem.Builder()
             .setMediaId(track.id)
-            .setUri(track.previewUrl ?: track.uri)
+            .setUri(uriString)
             .setMediaMetadata(metadata)
             .build()
     }

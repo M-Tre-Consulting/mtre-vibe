@@ -30,6 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.model.Album
 import com.vibe.core.model.Artist
@@ -41,6 +44,9 @@ import com.vibe.core.network.auth.AuthState
 import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.VibeAudioPlayer
+import com.vibe.core.ui.ExpressiveNavItem
+import com.vibe.core.ui.ExpressivePillNavBar
+import com.vibe.core.ui.SwipeBackContainer
 import com.vibe.core.ui.VibeTheme
 import com.vibe.feature.album.AlbumScreen
 import com.vibe.feature.artist.ArtistScreen
@@ -122,9 +128,18 @@ class MainActivity : ComponentActivity() {
                         is AuthState.Authenticated -> {
                             Scaffold(
                                 bottomBar = {
-                                    Column {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .navigationBarsPadding(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
                                         // Mini Player Bar docked above Navigation Bar
-                                        if (playbackState.currentTrack != null) {
+                                        AnimatedVisibility(
+                                            visible = playbackState.currentTrack != null,
+                                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                                        ) {
                                             MiniPlayerBar(
                                                 playbackState = playbackState,
                                                 onPlayPause = {
@@ -143,81 +158,135 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
 
-                                        NavigationBar {
-                                            NavigationBarItem(
-                                                selected = currentScreen == "home" && activeArtist == null && activeAlbum == null && activePlaylist == null,
-                                                onClick = {
-                                                    activeArtist = null
-                                                    activeAlbum = null
-                                                    activePlaylist = null
-                                                    currentScreen = "home"
-                                                },
-                                                icon = { Icon(Icons.Default.Home, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) },
-                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) }
-                                            )
-                                            NavigationBarItem(
-                                                selected = currentScreen == "search" && activeArtist == null && activeAlbum == null && activePlaylist == null,
-                                                onClick = {
-                                                    activeArtist = null
-                                                    activeAlbum = null
-                                                    activePlaylist = null
-                                                    currentScreen = "search"
-                                                },
-                                                icon = { Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) },
-                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) }
-                                            )
-                                            NavigationBarItem(
-                                                selected = currentScreen == "library" && activeArtist == null && activeAlbum == null && activePlaylist == null,
-                                                onClick = {
-                                                    activeArtist = null
-                                                    activeAlbum = null
-                                                    activePlaylist = null
-                                                    currentScreen = "library"
-                                                },
-                                                icon = { Icon(Icons.Default.LibraryMusic, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) },
-                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) }
-                                            )
-                                        }
+                                        // Material 3 Expressive Floating Pill Navbar
+                                        ExpressivePillNavBar(
+                                            items = listOf(
+                                                ExpressiveNavItem(
+                                                    id = "home",
+                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home),
+                                                    icon = Icons.Default.Home
+                                                ),
+                                                ExpressiveNavItem(
+                                                    id = "search",
+                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search),
+                                                    icon = Icons.Default.Search
+                                                ),
+                                                ExpressiveNavItem(
+                                                    id = "library",
+                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library),
+                                                    icon = Icons.Default.LibraryMusic
+                                                )
+                                            ),
+                                            selectedItemId = if (activeArtist == null && activeAlbum == null && activePlaylist == null) currentScreen else "",
+                                            onItemSelected = { selected ->
+                                                activeArtist = null
+                                                activeAlbum = null
+                                                activePlaylist = null
+                                                currentScreen = selected
+                                            }
+                                        )
                                     }
                                 }
                             ) { innerPadding ->
-                                Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                                    if (activeArtist != null) {
-                                        ArtistScreen(
-                                            artist = activeArtist!!,
-                                            onTrackClick = { track ->
-                                                audioPlayer.playTrack(track, activeArtist!!.topTracks)
-                                            },
-                                            onAlbumClick = { albumId ->
-                                                lifecycleScope.launch {
-                                                    apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                val currentDestination = when {
+                                    activeArtist != null -> "artist"
+                                    activeAlbum != null -> "album"
+                                    activePlaylist != null -> "playlist"
+                                    else -> currentScreen
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(innerPadding)
+                                ) {
+                                    AnimatedContent(
+                                        targetState = currentDestination,
+                                        transitionSpec = {
+                                            val isEnteringDetail = targetState in listOf("playlist", "album", "artist") &&
+                                                    initialState !in listOf("playlist", "album", "artist")
+                                            val isExitingDetail = initialState in listOf("playlist", "album", "artist") &&
+                                                    targetState !in listOf("playlist", "album", "artist")
+
+                                            if (isEnteringDetail) {
+                                                (slideInHorizontally(
+                                                    initialOffsetX = { it / 2 },
+                                                    animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                                                ) + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.94f))
+                                                    .togetherWith(
+                                                        slideOutHorizontally(targetOffsetX = { -it / 4 }) + fadeOut()
+                                                    )
+                                            } else if (isExitingDetail) {
+                                                (slideInHorizontally(
+                                                    initialOffsetX = { -it / 4 },
+                                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                ) + fadeIn() + scaleIn(initialScale = 0.96f))
+                                                    .togetherWith(
+                                                        slideOutHorizontally(
+                                                            targetOffsetX = { it },
+                                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                        ) + fadeOut()
+                                                    )
+                                            } else {
+                                                fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                                                    .togetherWith(fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)))
+                                            }
+                                        },
+                                        label = "navigationTransition"
+                                    ) { dest ->
+                                        when (dest) {
+                                            "artist" -> {
+                                                activeArtist?.let { artist ->
+                                                    SwipeBackContainer(onBack = { activeArtist = null }) {
+                                                        ArtistScreen(
+                                                            artist = artist,
+                                                            onBack = { activeArtist = null },
+                                                            onTrackClick = { track ->
+                                                                audioPlayer.playTrack(track, artist.topTracks)
+                                                            },
+                                                            onAlbumClick = { albumId ->
+                                                                lifecycleScope.launch {
+                                                                    apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                    BackHandler { activeArtist = null }
                                                 }
                                             }
-                                        )
-                                        BackHandler { activeArtist = null }
-                                    } else if (activeAlbum != null) {
-                                        AlbumScreen(
-                                            album = activeAlbum!!,
-                                            onTrackClick = { track, index ->
-                                                audioPlayer.playFilteredCollection(activeAlbum!!.tracks, index)
-                                            }
-                                        )
-                                        BackHandler { activeAlbum = null }
-                                    } else if (activePlaylist != null) {
-                                        PlaylistScreen(
-                                            playlist = activePlaylist!!,
-                                            onPlayClick = {
-                                                if (activePlaylist!!.tracks.isNotEmpty()) {
-                                                    audioPlayer.playTrack(activePlaylist!!.tracks.first(), activePlaylist!!.tracks)
+                                            "album" -> {
+                                                activeAlbum?.let { album ->
+                                                    SwipeBackContainer(onBack = { activeAlbum = null }) {
+                                                        AlbumScreen(
+                                                            album = album,
+                                                            onBack = { activeAlbum = null },
+                                                            onTrackClick = { track, index ->
+                                                                audioPlayer.playFilteredCollection(album.tracks, index)
+                                                            }
+                                                        )
+                                                    }
+                                                    BackHandler { activeAlbum = null }
                                                 }
-                                            },
-                                            onTrackClick = { track, index ->
-                                                audioPlayer.playFilteredCollection(activePlaylist!!.tracks, index)
                                             }
-                                        )
-                                        BackHandler { activePlaylist = null }
-                                    } else {
-                                        when (currentScreen) {
+                                            "playlist" -> {
+                                                activePlaylist?.let { playlist ->
+                                                    SwipeBackContainer(onBack = { activePlaylist = null }) {
+                                                        PlaylistScreen(
+                                                            playlist = playlist,
+                                                            onBack = { activePlaylist = null },
+                                                            onPlayClick = {
+                                                                if (playlist.tracks.isNotEmpty()) {
+                                                                    audioPlayer.playTrack(playlist.tracks.first(), playlist.tracks)
+                                                                }
+                                                            },
+                                                            onTrackClick = { track, index ->
+                                                                audioPlayer.playFilteredCollection(playlist.tracks, index)
+                                                            }
+                                                        )
+                                                    }
+                                                    BackHandler { activePlaylist = null }
+                                                }
+                                            }
                                             "home" -> HomeScreen(
                                                 playlists = userPlaylists,
                                                 recentTracks = userLikedTracks,
@@ -225,9 +294,6 @@ class MainActivity : ComponentActivity() {
                                                     lifecycleScope.launch {
                                                         apiService.getPlaylist(playlistId).onSuccess { p ->
                                                             activePlaylist = p
-                                                            if (p.tracks.isNotEmpty()) {
-                                                                audioPlayer.playTrack(p.tracks.first(), p.tracks)
-                                                            }
                                                         }
                                                     }
                                                 },

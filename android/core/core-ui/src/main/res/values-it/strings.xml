@@ -5,6 +5,7 @@
     <string name="nav_home">Home</string>
     <string name="nav_search">Cerca</string>
     <string name="nav_library">La tua libreria</string>
+    <string name="nav_back">Indietro</string>
 
     <!-- Welcome / Auth -->
     <string name="welcome_title">Benvenuto su Vibe</string>

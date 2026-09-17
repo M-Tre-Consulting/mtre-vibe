@@ -33,9 +33,13 @@ val appModule = module {
 
     single<VibeAudioPlayer> {
         val authManager: SpotifyAuthManager = get()
+        val apiService: SpotifyApiService = get()
         Media3AudioPlayerImpl(
             context = get(),
-            tokenProvider = { runBlocking { authManager.getValidAccessToken() } }
+            tokenProvider = { runBlocking { authManager.getValidAccessToken() } },
+            remotePlaybackProvider = { uris ->
+                apiService.startPlayback(uris = uris)
+            }
         )
     }
 

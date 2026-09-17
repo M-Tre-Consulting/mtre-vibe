@@ -43,6 +43,43 @@ class SpotifyAudioDataSource(
         transferInitializing(dataSpec)
 
         val uri = dataSpec.uri
+
+        // If direct HTTP/HTTPS stream (e.g. preview MP3/AAC URL), stream directly
+        if (uri.scheme == "http" || uri.scheme == "https") {
+            val requestBuilder = Request.Builder().url(uri.toString())
+            tokenProvider()?.let { token ->
+                requestBuilder.header("Authorization", "Bearer $token")
+            }
+            if (dataSpec.position != 0L || dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                val rangeEnd = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                    dataSpec.position + dataSpec.length - 1
+                } else ""
+                requestBuilder.header("Range", "bytes=${dataSpec.position}-$rangeEnd")
+            }
+            val resp = httpClient.newCall(requestBuilder.build()).execute()
+            if (resp.isSuccessful) {
+                this.response = resp
+                val body = resp.body ?: throw IOException("Empty response body from $uri")
+                this.inputStream = body.byteStream()
+                val contentLength = body.contentLength()
+
+                bytesRemaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                    dataSpec.length
+                } else if (contentLength != -1L) {
+                    contentLength
+                } else {
+                    C.LENGTH_UNSET.toLong()
+                }
+
+                opened = true
+                transferStarted(dataSpec)
+                return bytesRemaining
+            } else {
+                resp.close()
+                throw IOException("HTTP error ${resp.code} fetching $uri")
+            }
+        }
+
         val trackId = if (uri.scheme == "spotify") {
             uri.schemeSpecificPart.removePrefix("track:")
         } else {
