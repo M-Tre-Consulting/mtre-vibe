@@ -57,6 +57,20 @@ class SpotifyAuthManager(
         private val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         private val KEY_EXPIRES_AT = longPreferencesKey("expires_at")
         private val KEY_CODE_VERIFIER = stringPreferencesKey("code_verifier")
+        private val KEY_CLIENT_ID = stringPreferencesKey("client_id")
+    }
+
+    val savedClientId: Flow<String?> = context.authDataStore.data.map { it[KEY_CLIENT_ID] }
+
+    suspend fun setClientId(id: String) {
+        context.authDataStore.edit { prefs ->
+            prefs[KEY_CLIENT_ID] = id.trim()
+        }
+    }
+
+    suspend fun getEffectiveClientId(): String {
+        val stored = context.authDataStore.data.first()[KEY_CLIENT_ID]
+        return if (!stored.isNullOrBlank()) stored else clientId
     }
 
     val authState: Flow<AuthState> = context.authDataStore.data.map { prefs ->
@@ -72,7 +86,16 @@ class SpotifyAuthManager(
         }
     }
 
-    suspend fun launchLogin(context: Context) {
+    suspend fun launchLogin(context: Context, customClientId: String? = null) {
+        if (!customClientId.isNullOrBlank()) {
+            setClientId(customClientId)
+        }
+
+        val effectiveClientId = getEffectiveClientId()
+        if (effectiveClientId.isBlank() || effectiveClientId == SpotifyAuthConfig.DEFAULT_CLIENT_ID) {
+            throw IllegalArgumentException("Please enter a valid Spotify Client ID from developer.spotify.com")
+        }
+
         val codeVerifier = PkceCrypto.generateCodeVerifier()
         val codeChallenge = PkceCrypto.generateCodeChallenge(codeVerifier)
 
@@ -83,7 +106,7 @@ class SpotifyAuthManager(
 
         val scopesString = SpotifyAuthConfig.DEFAULT_SCOPES.joinToString(" ")
         val authUri = Uri.parse(SpotifyAuthConfig.AUTHORIZATION_ENDPOINT).buildUpon()
-            .appendQueryParameter("client_id", clientId)
+            .appendQueryParameter("client_id", effectiveClientId)
             .appendQueryParameter("response_type", "code")
             .appendQueryParameter("redirect_uri", redirectUri)
             .appendQueryParameter("code_challenge_method", "S256")
@@ -116,8 +139,9 @@ class SpotifyAuthManager(
     }
 
     private suspend fun exchangeCodeForTokens(code: String, codeVerifier: String): Result<Unit> = withContext(ioDispatcher) {
+        val effectiveClientId = getEffectiveClientId()
         val formBody = FormBody.Builder()
-            .add("client_id", clientId)
+            .add("client_id", effectiveClientId)
             .add("grant_type", "authorization_code")
             .add("code", code)
             .add("redirect_uri", redirectUri)
@@ -170,8 +194,9 @@ class SpotifyAuthManager(
             val tokenToUse = refreshToken ?: context.authDataStore.data.first()[KEY_REFRESH_TOKEN]
             if (tokenToUse.isNullOrBlank()) return@withContext null
 
+            val effectiveClientId = getEffectiveClientId()
             val formBody = FormBody.Builder()
-                .add("client_id", clientId)
+                .add("client_id", effectiveClientId)
                 .add("grant_type", "refresh_token")
                 .add("refresh_token", tokenToUse)
                 .build()

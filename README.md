@@ -220,6 +220,24 @@ Vibe is internationalized from the very beginning. Hardcoded user-facing strings
 ### Prerequisites
 - **Android**: JDK 17 or 21, Android SDK (API 34).
 - **iOS**: macOS Sonoma or later with Xcode 15+.
+- **Spotify Account**: Free or Premium Spotify account.
+
+### Spotify Developer Setup (Client ID)
+Spotify Web API authentication uses OAuth 2.0 with PKCE (Proof Key for Code Exchange). To connect your app to Spotify:
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
+2. Click **Create App**:
+   - **App Name**: `Vibe`
+   - **App Description**: `Native Spotify Client`
+   - **Redirect URI**: `vibe://auth/callback` *(must match exactly)*
+   - **APIs used**: Check `Web API`
+3. Copy your **Client ID** (32-character string).
+4. Configure your Client ID either:
+   - **Directly in the App**: Paste it into the setup field on the Welcome screen. Vibe saves it locally in secure DataStore preferences.
+   - **Or in `android/local.properties`** (auto-injected at build time):
+     ```properties
+     SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+     ```
 
 ### Building Android
 All dependencies and versions are declared in the Gradle Version Catalog (`android/gradle/libs.versions.toml`).

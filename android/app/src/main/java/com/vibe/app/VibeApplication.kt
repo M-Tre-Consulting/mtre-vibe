@@ -13,8 +13,17 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
 
+import com.vibe.core.network.auth.SpotifyAuthConfig
+
 val appModule = module {
-    single { SpotifyAuthManager(context = get()) }
+    single {
+        val configuredId = BuildConfig.SPOTIFY_CLIENT_ID.trim()
+        val defaultId = if (configuredId.isNotEmpty()) configuredId else SpotifyAuthConfig.DEFAULT_CLIENT_ID
+        SpotifyAuthManager(
+            context = get(),
+            clientId = defaultId
+        )
+    }
 
     single<SpotifyApiService> {
         val authManager: SpotifyAuthManager = get()

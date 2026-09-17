@@ -8,20 +8,31 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.auth.AuthState
+import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.VibeAudioPlayer
 import com.vibe.core.ui.VibeTheme
@@ -66,10 +77,17 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         is AuthState.Unauthenticated -> {
+                            val savedClientId by authManager.savedClientId.collectAsState(initial = null)
+                            val defaultClientId = BuildConfig.SPOTIFY_CLIENT_ID.ifBlank { "" }
                             LoginScreen(
-                                onLoginClick = {
+                                initialClientId = savedClientId ?: defaultClientId,
+                                onLoginClick = { enteredClientId ->
                                     lifecycleScope.launch {
-                                        authManager.launchLogin(this@MainActivity)
+                                        try {
+                                            authManager.launchLogin(this@MainActivity, customClientId = enteredClientId)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(this@MainActivity, e.message ?: "Invalid Client ID", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             )
@@ -235,11 +253,21 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LoginScreen(onLoginClick: () -> Unit) {
+fun LoginScreen(
+    initialClientId: String = "",
+    onLoginClick: (String) -> Unit
+) {
+    var clientId by remember(initialClientId) { mutableStateOf(initialClientId) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val redirectUri = SpotifyAuthConfig.REDIRECT_URI
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -247,22 +275,117 @@ fun LoginScreen(onLoginClick: () -> Unit) {
             imageVector = Icons.Default.MusicNote,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier.size(72.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.welcome_title),
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.welcome_subtitle),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Spotify Developer Dashboard setup Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.client_id_dashboard_info),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = redirectUri,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    IconButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(redirectUri))
+                            Toast.makeText(
+                                context,
+                                context.getString(com.vibe.core.ui.R.string.client_id_copied),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.client_id_redirect_uri_label),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://developer.spotify.com/dashboard"))
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.client_id_open_dashboard))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedTextField(
+            value = clientId,
+            onValueChange = {
+                clientId = it
+                if (errorMessage != null) errorMessage = null
+            },
+            label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.client_id_label)) },
+            placeholder = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.client_id_hint)) },
+            singleLine = true,
+            isError = errorMessage != null,
+            supportingText = if (errorMessage != null) {
+                { Text(errorMessage!!, color = MaterialTheme.colorScheme.error) }
+            } else null,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Button(
-            onClick = onLoginClick,
+            onClick = {
+                val trimmed = clientId.trim()
+                if (trimmed.isEmpty()) {
+                    errorMessage = context.getString(com.vibe.core.ui.R.string.client_id_empty_error)
+                } else {
+                    onLoginClick(trimmed)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)

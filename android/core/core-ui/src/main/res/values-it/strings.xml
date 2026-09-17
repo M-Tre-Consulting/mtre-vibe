@@ -12,6 +12,13 @@
     <string name="connect_with_spotify">Connetti con Spotify</string>
     <string name="connected_success">Connesso a Spotify!</string>
     <string name="login_error">Errore di accesso: %s</string>
+    <string name="client_id_label">Spotify Client ID</string>
+    <string name="client_id_hint">Incolla il tuo Client ID di 32 caratteri</string>
+    <string name="client_id_dashboard_info">Crea un\'app su Spotify Developer Dashboard e imposta questo Redirect URI:</string>
+    <string name="client_id_empty_error">Inserisci prima il tuo Client ID di Spotify</string>
+    <string name="client_id_open_dashboard">Apri Spotify Developer Dashboard</string>
+    <string name="client_id_redirect_uri_label">Redirect URI</string>
+    <string name="client_id_copied">Redirect URI copiato negli appunti</string>
 
     <!-- Home -->
     <string name="home_made_for_you">Create per te</string>
