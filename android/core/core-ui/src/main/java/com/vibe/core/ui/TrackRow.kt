@@ -71,13 +71,14 @@ fun TrackRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(0.8f, fill = false)
                 )
-                if (track.addedAt != null) {
+                val addedAt = track.addedAt
+                if (addedAt != null) {
                     Text(
                         text = "  ·  ",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         fontSize = 12.sp
                     )
-                    val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(track.addedAt))
+                    val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(addedAt))
                     Text(
                         text = dateStr,
                         style = MaterialTheme.typography.bodySmall,
