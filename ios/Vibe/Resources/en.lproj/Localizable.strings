@@ -1,0 +1,88 @@
+/* Navigation */
+"nav_home" = "Home";
+"nav_search" = "Search";
+"nav_library" = "Library";
+
+/* Welcome / Auth */
+"welcome_title" = "Welcome to Vibe";
+"welcome_subtitle" = "High-performance native client for Spotify. Connect with your account to get started.";
+"connect_with_spotify" = "Connect with Spotify";
+"connected_success" = "Connected to Spotify!";
+"login_error" = "Login error: %@";
+
+/* Home */
+"home_made_for_you" = "Made for You";
+"home_recently_played" = "Recently Played";
+"home_mix_prefix" = "Mix #%d";
+"home_recent_prefix" = "Recent #%d";
+
+/* Search */
+"search_placeholder" = "What do you want to listen to?";
+"search_tab_all" = "All";
+"search_tab_songs" = "Songs";
+"search_tab_artists" = "Artists";
+"search_tab_albums" = "Albums";
+"search_tab_playlists" = "Playlists";
+"search_tab_podcasts" = "Podcasts";
+"search_clear" = "Clear";
+
+/* Library */
+"library_title" = "Your Library";
+"library_liked_songs" = "Liked Songs";
+"library_auto_cached" = "Auto-cached locally";
+"library_tracks_count" = "%d tracks";
+"library_sort_order" = "Sort order";
+"library_pinned" = "Pinned";
+
+/* Playlist */
+"playlist_songs_count" = "%1$@ • %2$d songs";
+"playlist_play" = "Play";
+"playlist_refresh" = "Refresh playlist";
+"playlist_more_options" = "More options";
+
+/* Artist */
+"artist_monthly_listeners" = "%d monthly listeners";
+"artist_following" = "Following";
+"artist_follow" = "Follow";
+"artist_popular_songs" = "Popular Songs";
+"artist_discography" = "Discography";
+"artist_discography_albums" = "Albums";
+"artist_discography_eps_singles" = "EPs & Singles";
+"artist_discography_compilations" = "Compilations";
+
+/* Album */
+"album_type_ep" = "EP";
+"album_type_single" = "Single";
+"album_type_compilation" = "Compilation";
+"album_type_album" = "Album";
+
+/* Player */
+"player_now_playing" = "Now Playing";
+"player_play" = "Play";
+"player_pause" = "Pause";
+"player_skip_next" = "Next";
+"player_skip_previous" = "Previous";
+"player_collapse" = "Collapse";
+"player_lyrics" = "Lyrics";
+"player_queue" = "Queue";
+"player_devices" = "Devices";
+
+/* Queue */
+"queue_title" = "Play Queue";
+"queue_close" = "Close Queue";
+"queue_from" = "From: %@";
+"queue_next" = "Next in Queue";
+"queue_next_from" = "Next From: %@";
+"queue_history" = "Recently Played (History)";
+
+/* Lyrics */
+"lyrics_title" = "Lyrics";
+"lyrics_close" = "Close Lyrics";
+"lyrics_not_available" = "Lyrics not available for this track";
+
+/* Devices */
+"devices_title" = "Connect to a device";
+"devices_available_speakers" = "Listening On / Available Speakers";
+"devices_this_device" = "This Device (Playing)";
+"devices_spotify_connect" = "Spotify Connect";
+"devices_close" = "Close";

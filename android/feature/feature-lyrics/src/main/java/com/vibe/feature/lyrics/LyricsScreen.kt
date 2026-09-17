@@ -29,9 +29,15 @@ fun LyricsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Lyrics", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.lyrics_title),
+                style = MaterialTheme.typography.headlineMedium
+            )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close Lyrics")
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.lyrics_close)
+                )
             }
         }
 
@@ -39,7 +45,10 @@ fun LyricsScreen(
 
         if (lyrics == null || lyrics.lines.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Lyrics not available for this track", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.lyrics_not_available),
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         } else if (lyrics.isSynced) {
             // Find active line index

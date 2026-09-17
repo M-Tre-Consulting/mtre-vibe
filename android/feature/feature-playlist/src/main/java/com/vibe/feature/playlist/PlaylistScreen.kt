@@ -42,7 +42,14 @@ fun PlaylistScreen(
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("${playlist.ownerName} • ${playlist.totalTracks} songs", style = MaterialTheme.typography.bodySmall)
+            Text(
+                androidx.compose.ui.res.stringResource(
+                    com.vibe.core.ui.R.string.playlist_songs_count,
+                    playlist.ownerName,
+                    playlist.totalTracks
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -52,7 +59,10 @@ fun PlaylistScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh playlist")
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.playlist_refresh)
+                    )
                 }
 
                 FloatingActionButton(
@@ -62,11 +72,17 @@ fun PlaylistScreen(
                     },
                     containerColor = MaterialTheme.colorScheme.primary
                 ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Play")
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.playlist_play)
+                    )
                 }
 
                 IconButton(onClick = {}) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.playlist_more_options)
+                    )
                 }
             }
         }

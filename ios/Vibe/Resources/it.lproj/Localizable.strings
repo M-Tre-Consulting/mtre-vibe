@@ -1,0 +1,88 @@
+/* Navigation */
+"nav_home" = "Home";
+"nav_search" = "Cerca";
+"nav_library" = "La tua libreria";
+
+/* Welcome / Auth */
+"welcome_title" = "Benvenuto su Vibe";
+"welcome_subtitle" = "Client nativo ad alte prestazioni per Spotify. Connetti il tuo account per iniziare.";
+"connect_with_spotify" = "Connetti con Spotify";
+"connected_success" = "Connesso a Spotify!";
+"login_error" = "Errore di accesso: %@";
+
+/* Home */
+"home_made_for_you" = "Create per te";
+"home_recently_played" = "Ascoltati di recente";
+"home_mix_prefix" = "Mix n. %d";
+"home_recent_prefix" = "Recente n. %d";
+
+/* Search */
+"search_placeholder" = "Cosa vuoi ascoltare?";
+"search_tab_all" = "Tutto";
+"search_tab_songs" = "Brani";
+"search_tab_artists" = "Artisti";
+"search_tab_albums" = "Album";
+"search_tab_playlists" = "Playlist";
+"search_tab_podcasts" = "Podcast";
+"search_clear" = "Cancella";
+
+/* Library */
+"library_title" = "La tua libreria";
+"library_liked_songs" = "Brani che ti piacciono";
+"library_auto_cached" = "Memorizzati nella cache locale";
+"library_tracks_count" = "%d brani";
+"library_sort_order" = "Ordinamento";
+"library_pinned" = "Fissato";
+
+/* Playlist */
+"playlist_songs_count" = "%1$@ • %2$d brani";
+"playlist_play" = "Riproduci";
+"playlist_refresh" = "Aggiorna playlist";
+"playlist_more_options" = "Altre opzioni";
+
+/* Artist */
+"artist_monthly_listeners" = "%d ascoltatori mensili";
+"artist_following" = "Segui già";
+"artist_follow" = "Segui";
+"artist_popular_songs" = "Brani più popolari";
+"artist_discography" = "Discografia";
+"artist_discography_albums" = "Album";
+"artist_discography_eps_singles" = "EP e singoli";
+"artist_discography_compilations" = "Raccolte";
+
+/* Album */
+"album_type_ep" = "EP";
+"album_type_single" = "Singolo";
+"album_type_compilation" = "Raccolta";
+"album_type_album" = "Album";
+
+/* Player */
+"player_now_playing" = "In riproduzione";
+"player_play" = "Riproduci";
+"player_pause" = "Pausa";
+"player_skip_next" = "Successivo";
+"player_skip_previous" = "Precedente";
+"player_collapse" = "Riduci a icona";
+"player_lyrics" = "Testo";
+"player_queue" = "Coda";
+"player_devices" = "Dispositivi";
+
+/* Queue */
+"queue_title" = "Coda di riproduzione";
+"queue_close" = "Chiudi coda";
+"queue_from" = "Da: %@";
+"queue_next" = "Prossimi in coda";
+"queue_next_from" = "Prossimi da: %@";
+"queue_history" = "Ascoltati di recente (Cronologia)";
+
+/* Lyrics */
+"lyrics_title" = "Testo del brano";
+"lyrics_close" = "Chiudi testo";
+"lyrics_not_available" = "Testo non disponibile per questo brano";
+
+/* Devices */
+"devices_title" = "Connetti a un dispositivo";
+"devices_available_speakers" = "In ascolto su / Dispositivi disponibili";
+"devices_this_device" = "Questo dispositivo (In riproduzione)";
+"devices_spotify_connect" = "Spotify Connect";
+"devices_close" = "Chiudi";

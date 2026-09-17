@@ -23,12 +23,15 @@ fun DevicesDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Connect to a device", style = MaterialTheme.typography.titleLarge)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_title),
+                style = MaterialTheme.typography.titleLarge
+            )
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                 Text(
-                    "Listening On / Available Speakers",
+                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_available_speakers),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -51,7 +54,7 @@ fun DevicesDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_close))
             }
         }
     )
@@ -94,7 +97,8 @@ fun DeviceItemRow(
                         color = if (device.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (device.isActive) "This Device (Playing)" else "Spotify Connect",
+                        text = if (device.isActive) androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_this_device)
+                               else androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_spotify_connect),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

@@ -69,12 +69,18 @@ fun MiniPlayerBar(
                 IconButton(onClick = onPlayPause) {
                     Icon(
                         if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (playbackState.isPlaying) "Pause" else "Play"
+                        contentDescription = androidx.compose.ui.res.stringResource(
+                            if (playbackState.isPlaying) com.vibe.core.ui.R.string.player_pause
+                            else com.vibe.core.ui.R.string.player_play
+                        )
                     )
                 }
 
                 IconButton(onClick = onSkipNext) {
-                    Icon(Icons.Default.SkipNext, contentDescription = "Skip Next")
+                    Icon(
+                        Icons.Default.SkipNext,
+                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_skip_next)
+                    )
                 }
             }
         }
@@ -114,14 +120,20 @@ fun FullPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Collapse")
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_collapse)
+                )
             }
             Text(
-                text = playbackState.contextTitle ?: "Playing",
+                text = playbackState.contextTitle ?: androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_now_playing),
                 style = MaterialTheme.typography.titleSmall
             )
             IconButton(onClick = onOpenDevices) {
-                Icon(Icons.Default.SpeakerGroup, contentDescription = "Devices")
+                Icon(
+                    Icons.Default.SpeakerGroup,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_devices)
+                )
             }
         }
 
@@ -180,7 +192,10 @@ fun FullPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onSkipPrevious) {
-                Icon(Icons.Default.SkipPrevious, contentDescription = "Previous")
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_skip_previous)
+                )
             }
             FloatingActionButton(
                 onClick = onPlayPause,
@@ -188,11 +203,17 @@ fun FullPlayerScreen(
             ) {
                 Icon(
                     if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (playbackState.isPlaying) "Pause" else "Play"
+                    contentDescription = androidx.compose.ui.res.stringResource(
+                        if (playbackState.isPlaying) com.vibe.core.ui.R.string.player_pause
+                        else com.vibe.core.ui.R.string.player_play
+                    )
                 )
             }
             IconButton(onClick = onSkipNext) {
-                Icon(Icons.Default.SkipNext, contentDescription = "Next")
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_skip_next)
+                )
             }
         }
 
@@ -202,10 +223,16 @@ fun FullPlayerScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(onClick = onOpenLyrics) {
-                Icon(Icons.Default.Lyrics, contentDescription = "Lyrics")
+                Icon(
+                    Icons.Default.Lyrics,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_lyrics)
+                )
             }
             IconButton(onClick = onOpenQueue) {
-                Icon(Icons.Default.QueueMusic, contentDescription = "Queue")
+                Icon(
+                    Icons.Default.QueueMusic,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_queue)
+                )
             }
         }
     }

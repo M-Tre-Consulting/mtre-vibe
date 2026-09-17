@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">Vibe</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_library">Library</string>
+
+    <!-- Welcome / Auth -->
+    <string name="welcome_title">Welcome to Vibe</string>
+    <string name="welcome_subtitle">High-performance native client for Spotify. Connect with your account to get started.</string>
+    <string name="connect_with_spotify">Connect with Spotify</string>
+    <string name="connected_success">Connected to Spotify!</string>
+    <string name="login_error">Login error: %s</string>
+
+    <!-- Home -->
+    <string name="home_made_for_you">Made for You</string>
+    <string name="home_recently_played">Recently Played</string>
+    <string name="home_mix_prefix">Mix #%d</string>
+    <string name="home_recent_prefix">Recent #%d</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">What do you want to listen to?</string>
+    <string name="search_tab_all">All</string>
+    <string name="search_tab_songs">Songs</string>
+    <string name="search_tab_artists">Artists</string>
+    <string name="search_tab_albums">Albums</string>
+    <string name="search_tab_playlists">Playlists</string>
+    <string name="search_tab_podcasts">Podcasts</string>
+    <string name="search_clear">Clear</string>
+
+    <!-- Library -->
+    <string name="library_title">Your Library</string>
+    <string name="library_liked_songs">Liked Songs</string>
+    <string name="library_auto_cached">Auto-cached locally</string>
+    <string name="library_tracks_count">%d tracks</string>
+    <string name="library_sort_order">Sort order</string>
+    <string name="library_pinned">Pinned</string>
+
+    <!-- Playlist -->
+    <string name="playlist_songs_count">%1$s • %2$d songs</string>
+    <string name="playlist_play">Play</string>
+    <string name="playlist_refresh">Refresh playlist</string>
+    <string name="playlist_more_options">More options</string>
+
+    <!-- Artist -->
+    <string name="artist_monthly_listeners">%d monthly listeners</string>
+    <string name="artist_following">Following</string>
+    <string name="artist_follow">Follow</string>
+    <string name="artist_popular_songs">Popular Songs</string>
+    <string name="artist_discography">Discography</string>
+    <string name="artist_discography_albums">Albums</string>
+    <string name="artist_discography_eps_singles">EPs &amp; Singles</string>
+    <string name="artist_discography_compilations">Compilations</string>
+
+    <!-- Album -->
+    <string name="album_type_ep">EP</string>
+    <string name="album_type_single">Single</string>
+    <string name="album_type_compilation">Compilation</string>
+    <string name="album_type_album">Album</string>
+
+    <!-- Player -->
+    <string name="player_now_playing">Now Playing</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_skip_next">Next</string>
+    <string name="player_skip_previous">Previous</string>
+    <string name="player_collapse">Collapse</string>
+    <string name="player_lyrics">Lyrics</string>
+    <string name="player_queue">Queue</string>
+    <string name="player_devices">Devices</string>
+
+    <!-- Queue -->
+    <string name="queue_title">Play Queue</string>
+    <string name="queue_close">Close Queue</string>
+    <string name="queue_from">From: %s</string>
+    <string name="queue_next">Next in Queue</string>
+    <string name="queue_next_from">Next From: %s</string>
+    <string name="queue_history">Recently Played (History)</string>
+
+    <!-- Lyrics -->
+    <string name="lyrics_title">Lyrics</string>
+    <string name="lyrics_close">Close Lyrics</string>
+    <string name="lyrics_not_available">Lyrics not available for this track</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Connect to a device</string>
+    <string name="devices_available_speakers">Listening On / Available Speakers</string>
+    <string name="devices_this_device">This Device (Playing)</string>
+    <string name="devices_spotify_connect">Spotify Connect</string>
+    <string name="devices_close">Close</string>
+</resources>

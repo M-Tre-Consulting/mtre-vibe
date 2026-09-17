@@ -96,20 +96,20 @@ class MainActivity : ComponentActivity() {
                                             NavigationBarItem(
                                                 selected = currentScreen == "home",
                                                 onClick = { currentScreen = "home" },
-                                                icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                                                label = { Text("Home") }
+                                                icon = { Icon(Icons.Default.Home, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) },
+                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) }
                                             )
                                             NavigationBarItem(
                                                 selected = currentScreen == "search",
                                                 onClick = { currentScreen = "search" },
-                                                icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                                                label = { Text("Search") }
+                                                icon = { Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) },
+                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) }
                                             )
                                             NavigationBarItem(
                                                 selected = currentScreen == "library",
                                                 onClick = { currentScreen = "library" },
-                                                icon = { Icon(Icons.Default.LibraryMusic, contentDescription = "Library") },
-                                                label = { Text("Library") }
+                                                icon = { Icon(Icons.Default.LibraryMusic, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) },
+                                                label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) }
                                             )
                                         }
                                     }
@@ -251,12 +251,12 @@ fun LoginScreen(onLoginClick: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Welcome to Vibe",
+            text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.welcome_title),
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "High-performance native client for Spotify. Connect with your account to get started.",
+            text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.welcome_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -267,7 +267,10 @@ fun LoginScreen(onLoginClick: () -> Unit) {
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Text("Connect with Spotify", style = MaterialTheme.typography.titleMedium)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.connect_with_spotify),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

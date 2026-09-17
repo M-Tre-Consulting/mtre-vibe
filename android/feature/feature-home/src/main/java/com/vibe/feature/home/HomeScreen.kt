@@ -20,7 +20,10 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            Text("Made for You", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.home_made_for_you),
+                style = MaterialTheme.typography.headlineSmall
+            )
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(5) { index ->
@@ -29,7 +32,10 @@ fun HomeScreen(
                         onClick = { onPlaylistClick("playlist_$index") }
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                            Text("Mix #$index", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.home_mix_prefix, index + 1),
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
                     }
                 }
@@ -37,7 +43,10 @@ fun HomeScreen(
         }
 
         item {
-            Text("Recently Played", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.home_recently_played),
+                style = MaterialTheme.typography.headlineSmall
+            )
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(5) { index ->
@@ -46,7 +55,10 @@ fun HomeScreen(
                         onClick = { onTrackClick("track_$index") }
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                            Text("Recent #$index", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.home_recent_prefix, index + 1),
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
                     }
                 }

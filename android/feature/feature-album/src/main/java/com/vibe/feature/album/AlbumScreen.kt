@@ -27,12 +27,11 @@ fun AlbumScreen(
             ) {
                 Text(album.name, style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(4.dp))
-                // Distinguish EP vs Single vs Album
                 val typeLabel = when (album.albumType) {
-                    AlbumType.EP -> "EP"
-                    AlbumType.SINGLE -> "Single"
-                    AlbumType.COMPILATION -> "Compilation"
-                    AlbumType.ALBUM -> "Album"
+                    AlbumType.EP -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_ep)
+                    AlbumType.SINGLE -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_single)
+                    AlbumType.COMPILATION -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_compilation)
+                    AlbumType.ALBUM -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_album)
                 }
                 Text(
                     "${album.artists.joinToString(", ") { it.name }} • $typeLabel • ${album.releaseDate.take(4)}",

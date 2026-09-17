@@ -1,222 +1,238 @@
 # Vibe
 
-> **Vibe** è un client Spotify multipiattaforma completamente **nativo** per **Android** e **iOS**, progettato con architettura a moduli pulita (Clean Architecture), zero dipendenze da framework cross-platform non nativi o runtime esterni (es. Rust), implementato interamente in **Kotlin** (Android) e **Swift** (iOS).
+> **Vibe** is a fully **native**, high-performance multi-project Spotify client for **Android** and **iOS**. It is built from the ground up using clean modular architecture, without cross-platform web wrappers or non-native runtimes (no Rust, no Electron/Cordova), written purely in **Kotlin** (Android) and **Swift** (iOS).
 
 ---
 
-## Indice dei Contenuti
-- [Visione e Filosofia](#visione-e-filosofia)
-- [Architettura del Repository Multiprogetto](#architettura-del-repository-multiprogetto)
-  - [Struttura Android (Kotlin)](#struttura-android-kotlin)
-  - [Struttura iOS (Swift)](#struttura-ios-swift)
-- [Specifiche delle Funzionalità](#specifiche-delle-funzionalità)
-  - [1. Riproduzione Audio Nativa & Ricevitore Spotify Connect](#1-riproduzione-audio-nativa--ricevitore-spotify-connect)
-  - [2. Controllo Remoto dei Dispositivi (Connect Controller)](#2-controllo-remoto-dei-dispositivi-connect-controller)
-  - [3. Discovery di Rete Locale (mDNS / Zeroconf)](#3-discovery-di-rete-locale-mdns--zeroconf)
-  - [4. Libreria Personale & Gestione Caching](#4-libreria-personale--gestione-caching)
-  - [5. Sistema di Ricerca a Doppia Sorgente Isolato](#5-sistema-di-ricerca-a-doppia-sorgente-isolato)
-  - [6. Home & Raccomandazioni Dinamiche](#6-home--raccomandazioni-dinamiche)
-  - [7. Pagine Artista & Album con Riconoscimento EP](#7-pagine-artista--album-con-riconoscimento-ep)
-  - [8. Editing Avanzato Playlist & Drag-and-Drop](#8-editing-avanzato-playlist--drag-and-drop)
+## Table of Contents
+- [Vision & Philosophy](#vision--philosophy)
+- [Multi-Project Repository Architecture](#multi-project-repository-architecture)
+  - [Android Project Structure (Kotlin)](#android-project-structure-kotlin)
+  - [iOS Project Structure (Swift)](#ios-project-structure-swift)
+- [Internationalization (i18n)](#internationalization-i18n)
+- [Comprehensive Feature Specifications](#comprehensive-feature-specifications)
+  - [1. Native Audio Playback & Spotify Connect Target](#1-native-audio-playback--spotify-connect-target)
+  - [2. Remote Device Control (Connect Controller)](#2-remote-device-control-connect-controller)
+  - [3. Local Network Discovery (mDNS / Zeroconf)](#3-local-network-discovery-mdns--zeroconf)
+  - [4. Personal Library & Caching Infrastructure](#4-personal-library--caching-infrastructure)
+  - [5. Resilient Dual-Source Search Engine](#5-resilient-dual-source-search-engine)
+  - [6. Dynamic Home & Recommendation Feeds](#6-dynamic-home--recommendation-feeds)
+  - [7. Artist & Album Pages with Smart EP Detection](#7-artist--album-pages-with-smart-ep-detection)
+  - [8. Advanced Playlist Editing & Drag-and-Drop](#8-advanced-playlist-editing--drag-and-drop)
   - [9. Deep Linking & Universal Links](#9-deep-linking--universal-links)
-  - [10. Gestione Coda Dinamica & Cronologia Separata](#10-gestione-coda-dinamica--cronologia-separata)
-  - [11. Integrità Cache & Buffer per Checkpoint Playlist](#11-integrità-cache--buffer-per-checkpoint-playlist)
-  - [12. Testi Sincronizzati (Lyrics)](#12-testi-sincronizzati-lyrics)
-  - [13. Ripristino Sessione all'Avvio](#13-ripristino-sessione-allavvio)
-  - [14. Tema Dinamico con Tinting dalla Copertina (Dynamic Color)](#14-tema-dinamico-con-tinting-dalla-copertina-dynamic-color)
-- [Stack Tecnologico](#stack-tecnologico)
-- [Guida per Sviluppatori](#guida-per-sviluppatori)
+  - [10. Dynamic Play Queue & Repeat History Tracking](#10-dynamic-play-queue--repeat-history-tracking)
+  - [11. Cache Integrity & Streamed Checkpoint Buffering](#11-cache-integrity--streamed-checkpoint-buffering)
+  - [12. Real-Time Synchronized Lyrics](#12-real-time-synchronized-lyrics)
+  - [13. Session State Restoration on Launch](#13-session-state-restoration-on-launch)
+  - [14. Dynamic Album Art Tinting & Material You Palette](#14-dynamic-album-art-tinting--material-you-palette)
+- [Technology Stack](#technology-stack)
+- [Developer Guide & Getting Started](#developer-guide--getting-started)
 
 ---
 
-## Visione e Filosofia
+## Vision & Philosophy
 
-Vibe è pensato per offrire la massima velocità, efficienza della memoria e reattività dell'interfaccia utente, sfruttando appieno le API di sistema native:
-- **100% Nativo**: Nessun overhead di linguaggi o runtime complessi da compilare con toolchain C/Rust. Tutto è sviluppato in standard **Kotlin** per Android e **Swift** per iOS.
-- **Interfaccia Moderna**: Jetpack Compose su Android, SwiftUI su iOS.
-- **Nessuna funzione non pertinente**: Esclusi temi o player vintage (es. Winamp), mantenendo l'esperienza focalizzata sulle prestazioni mobile native e il design system Material 3 / iOS Human Interface Guidelines.
+Vibe is built for instant responsiveness, memory efficiency, and battery optimization by taking full advantage of modern platform-native APIs:
+- **100% Native**: Zero toolchain overhead from third-party runtimes. Pure **Kotlin** on Android and pure **Swift** on iOS.
+- **Modern UI**: Declarative reactive UI using **Jetpack Compose** (Android) and **SwiftUI** (iOS).
+- **Internationalized by Design**: Built from day one with multi-language support (English and Italian).
+- **Pure Mobile Experience**: Clean design adhering to Material 3 and Apple Human Interface Guidelines, avoiding vintage non-contextual themes (e.g. Winamp).
 
 ---
 
-## Architettura del Repository Multiprogetto
+## Multi-Project Repository Architecture
 
-Il repository è organizzato come monorepo con separazione chiara tra le piattaforme e scomposizione modulare:
+The monorepo separates platform targets cleanly while maintaining shared domain naming conventions:
 
 ```
 mtre-vibe/
-├── README.md
-├── .gitignore
-├── android/                        # Progetto Android nativo (Gradle Multi-Modulo in Kotlin)
+├── README.md                       # Comprehensive project documentation (English)
+├── .gitignore                      # Git rules for Gradle, Android Studio, Xcode, and secrets
+├── android/                        # Native Android multi-module Gradle project (Kotlin)
 │   ├── build.gradle.kts            # Root build script
-│   ├── settings.gradle.kts         # Definizione dei moduli Gradle (rootProject.name = "Vibe")
+│   ├── settings.gradle.kts         # Gradle modules declaration (rootProject.name = "Vibe")
 │   ├── gradle.properties
 │   ├── gradlew                     # Gradle Wrapper script
 │   ├── gradle/
-│   │   ├── libs.versions.toml      # Version Catalog unificato (AGP, Kotlin 2.x, Media3, Compose)
+│   │   ├── libs.versions.toml      # Unified Version Catalog (AGP, Kotlin 2.x, Media3, Compose)
 │   │   └── wrapper/
 │   │       └── gradle-wrapper.properties
-│   ├── app/                        # Modulo applicazione Android
+│   ├── app/                        # Main Android application module
 │   │   ├── build.gradle.kts
 │   │   └── src/main/
-│   │       ├── AndroidManifest.xml # Deep linking (spotify: e open.spotify.com), Service Media3
+│   │       ├── AndroidManifest.xml # Deep linking (spotify: & open.spotify.com), Media3 Service
+│   │       ├── res/
+│   │       │   ├── values/strings.xml    # English base strings
+│   │       │   └── values-it/strings.xml # Italian localization strings
 │   │       └── java/com/vibe/app/
 │   │           ├── MainActivity.kt
 │   │           ├── VibeApplication.kt
 │   │           └── playback/VibeMediaSessionService.kt
-│   ├── core/                       # Core modules (condivisi tra le feature Android)
-│   │   ├── core-model/             # Entità di dominio (Track, Album, Playlist, Device, ecc.)
-│   │   ├── core-common/            # Utility coroutine, dispatchers, Resource result wrappers
-│   │   ├── core-network/           # Spotify Web API, auth PKCE, timeout a 5s per failover rapido
-│   │   ├── core-playback/          # ExoPlayer/Media3, cache disco 512MB, gapless, purge seek buffer
-│   │   ├── core-connect/           # mDNS discovery (Android NSD / JmDNS), deduplica per device ID
-│   │   ├── core-database/          # Room DB, cache per account per Liked Songs, checkpoint buffer
-│   │   └── core-ui/                # Material 3 Theme, Dynamic Palette extractor, TrackRow compatto
-│   └── feature/                    # Feature modules (UI isolate con Compose)
-│       ├── feature-home/           # Home, Made for You, scaffali consigliati
-│       ├── feature-search/         # Ricerca a doppia sorgente (catalogo + playlist)
-│       ├── feature-library/        # Libreria, Liked Songs pin, ordinamenti
-│       ├── feature-playlist/       # Vista playlist, editing dettagli, upload cover, in-place drop
-│       ├── feature-artist/         # Pagina artista, discografia filtrabile (badge EP)
-│       ├── feature-album/          # Pagina album con tipo (EP / Single / Album)
-│       ├── feature-player/         # MiniPlayer docked & Player full-screen con tinting
-│       ├── feature-queue/          # Gestione coda, tracciamento storico ripetizioni
-│       ├── feature-lyrics/         # Testi sincronizzati a scorrimento e fallback testo semplice
-│       └── feature-devices/        # Device picker Spotify Connect con slider volume remoto
-└── ios/                            # Progetto nativo iOS (Swift & SwiftUI)
-    ├── README.md
-    └── Vibe/                       # Alberatura completa con file .gitkeep per ciascun modulo
-        ├── App/                    # Entrypoint SwiftUI @main, lifecycle, handling universal links (.gitkeep)
+│   ├── core/                       # Shared core infrastructure modules
+│   │   ├── core-model/             # Domain entities (Track, Album, Playlist, Device, Queue, etc.)
+│   │   ├── core-common/            # Coroutine dispatchers, Resource wrappers, async utilities
+│   │   ├── core-network/           # Spotify Web API, PKCE Auth, 5-second timeout failover client
+│   │   ├── core-playback/          # ExoPlayer/Media3, 512MB disk cache, gapless, seek buffer discard
+│   │   ├── core-connect/           # mDNS discovery (Android NSD / JmDNS), device ID deduplication
+│   │   ├── core-database/          # Room DB, account-specific Liked Songs cache, 64KB streamed buffer
+│   │   └── core-ui/                # M3 Theme, Dynamic Palette extractor, localized strings & components
+│   └── feature/                    # Isolated feature UI modules (Jetpack Compose)
+│       ├── feature-home/           # Home feed, Made for You, recommendation shelves
+│       ├── feature-search/         # Isolated dual-source search (personal catalog + playlists)
+│       ├── feature-library/        # Library navigation, Liked Songs pinning, sorting modes
+│       ├── feature-playlist/       # Playlist view, metadata editing, cover upload, in-place insertion
+│       ├── feature-artist/         # Artist page, popular tracks, discography with EP badge
+│       ├── feature-album/          # Album detail with EP / Single / Album badge
+│       ├── feature-player/         # Docked MiniPlayer & Full-screen player with dynamic tinting
+│       ├── feature-queue/          # Contextual play queue, repeat history tracking
+│       ├── feature-lyrics/         # Synced scrolling lyrics with plain text fallback
+│       └── feature-devices/        # Spotify Connect device picker with remote volume slider
+└── ios/                            # Native iOS multi-module project (Swift & SwiftUI)
+    ├── README.md                   # iOS target guide
+    └── Vibe/                       # Native Xcode / Swift directory layout with .gitkeep placeholders
+        ├── App/                    # SwiftUI @main entrypoint, app lifecycle, universal links (.gitkeep)
         ├── Core/                   # Model, Network, Playback, Connect, Storage, UI (.gitkeep)
         ├── Features/               # Home, Search, Library, Playlist, Artist, Album, Player, Queue, Lyrics, Devices (.gitkeep)
-        ├── Resources/              # Assets.xcassets (.gitkeep)
+        ├── Resources/              # Localizable string catalogs (en, it) & Assets.xcassets (.gitkeep)
         └── Tests/                  # VibeTests, VibeUITests (.gitkeep)
 ```
 
 ---
 
-## Specifiche delle Funzionalità
+## Internationalization (i18n)
 
-### 1. Riproduzione Audio Nativa & Ricevitore Spotify Connect
-- **Ricevitore Connect**: Vibe appare nella rete locale come dispositivo Spotify Connect. Può essere selezionato direttamente da un telefono o comandato internamente.
-- **Qualità & Bitrate**: Supporto per streaming fino a **320 kbps** (Very High Quality), riproduzione **gapless** senza interruzioni tra le tracce.
-- **Normalizzazione Volume**: Controllo opzionale del guadagno ReplayGain/Loudness per uniformare il volume delle tracce.
-- **Cache Audio su Disco**: Cache dedicata locale (default 512MB espandibile) su memoria interna ad accesso istantaneo, che azzera il buffering per i brani riprodotti di frequente.
-- **Failover di Rete a 5 Secondi**: Timeout di connessione rigido a **5 secondi per tentativo**: se un endpoint Spotify rallenta o va in stallo, il player tenta immediatamente un endpoint CDN alternativo senza bloccare la riproduzione.
-- **Purge Immediato del Buffer al Seek**: Quando l'utente conferma un seek temporale, il buffer audio residuo della posizione precedente viene **immediatamente scartato** (`onPositionDiscontinuity`), azzerando le code di decodifica obsolete.
-- **Visualizzazione Istantanea dei Metadati**: All'avvio di una playlist ordinata o della vista *Liked Songs*, la canzone richiesta viene mostrata all'istante nel player bar utilizzando i metadati precaricati, mentre la connessione audio si stabilisce in background.
-- **Viste Ordinate**: Partono automaticamente dalla prima riga effettivamente riproducibile (`isPlayable == true`).
-- **Vincolo di Riproduzione Filtrata**: L'applicazione di un filtro di testo mantiene la riproduzione limitata **esclusivamente ai brani mostrati** a schermo, preservando le tracce duplicate; il pulsante Play viene disabilitato se nessun brano filtrato è riproducibile.
+Vibe is internationalized from the very beginning. Hardcoded user-facing strings are strictly prohibited:
+- **Android**: Strings are managed via Android XML resource catalogs (`res/values/strings.xml` for English, `res/values-it/strings.xml` for Italian).
+- **iOS**: Strings are organized in String Catalogs / Localization tables (`en.lproj` and `it.lproj`).
+- **Supported Languages**:
+  - 🇺🇸 **English** (Default)
+  - 🇮🇹 **Italian** (Italiano)
 
-### 2. Controllo Remoto dei Dispositivi (Connect Controller)
-- Spostamento trasparente della sessione di riproduzione verso altoparlanti, TV, smartphone o computer dal selettore dei dispositivi.
-- Controllo remoto completo: play, pausa, salto traccia (avanti/indietro), seek temporale, shuffle, modalità di ripetizione e controllo del volume.
-- La lista dei dispositivi supporta lo scorrimento fluido anche con elenchi molto lunghi.
+---
 
-### 3. Discovery di Rete Locale (mDNS / Zeroconf)
-- Ricerca attiva tramite protocollo mDNS/DNS-SD (`_spotify-connect._tcp.local.`) via Android `NsdManager` / `JmDNS` su Android e `Network.framework` (Bonjour) su iOS.
-- Rilevamento automatico di istanze `librespot`, `spotifyd` e sintoamplificatori/ricevitori hardware compatibili.
-- **Deduplicazione Intelligente**: Unione automatica delle voci che condividono lo stesso `device_id`, mostrando il nome comunicato dal ricevitore e prevenendo duplicati nel menu di selezione.
+## Comprehensive Feature Specifications
 
-### 4. Libreria Personale & Gestione Caching
-- Navigazione completa: Playlist, Brani che ti piacciono (Liked Songs), Album salvati, Artisti seguiti, Podcast ed Episodi salvati.
-- Filtro rapido, fissaggio in alto (pin) e riordinamento degli elementi.
-- **Interazione Rapida**: Doppio tocco/click su una playlist nella libreria per avviare subito la riproduzione; tocco singolo per aprire il dettaglio.
-- **Modalità Elenco Compatto**: Opzione nelle impostazioni per una visualizzazione compressa a riga singola per traccia, con separatori spaziati: `Titolo  ·  Artisti  ·  Data di aggiunta`.
-- **Ordinamento Flessibile**: Per Nome, Riproduzioni recenti o Data di salvataggio. Possibilità di seguire l'ordinamento cloud di Spotify o mantenere un arrangiamento locale personalizzato.
-- **Gestione Fissaggio (Pin) Liked Songs**: Possibilità di spostare o rimuovere dai pin la sezione *Liked Songs*; la posizione locale viene preservata tra i riavvii dell'app.
-- **Cache dei Brani che ti Piacciono**: Apertura istantanea da una cache di metadati legata allo specifico account. Le righe più datate si aggiornano silenziosamente in background, mentre le azioni di *Mi piace* / *Non mi piace* applicano una modifica ottimistica istantanea all'interfaccia.
-- **Menu Contestuali**: Pressione prolungata (o tasto destro su tablet/desktop) su schede di album, artisti e podcast con foglio di azioni dedicate.
+### 1. Native Audio Playback & Spotify Connect Target
+- **Connect Target**: Vibe registers on the local network as an active Spotify Connect receiver. It can be targeted from any smartphone, desktop, or controlled directly within the app.
+- **Bitrate & Gapless**: Supports high-fidelity playback up to **320 kbps** (Very High Quality Ogg Vorbis/AAC) with true **gapless playback** across track boundaries.
+- **Volume Normalization**: Optional ReplayGain / Loudness normalizer to eliminate drastic volume jumps between tracks.
+- **On-Disk Audio Cache**: Dedicated local cache (512 MB by default, user-configurable) stored on internal storage for zero-buffering instant replay.
+- **5-Second Timeout & CDN Failover**: Stalled network connections time out after **5 seconds per attempt**, automatically failing over to alternative Spotify CDN edge servers (`audio-fa.scdn.co`, `audio-ak.scdn.co`, `audio4-fa.scdn.co`).
+- **Immediate Seek Purge**: Confirmed local seeks immediately discard and flush audio buffers queued from the old position (`Player.DISCONTINUITY_REASON_SEEK`), eliminating stale playback delays.
+- **Instant Metadata Display**: Starting a sorted playlist or Liked Songs immediately updates the player bar with preloaded metadata while the audio stream resolves in the background.
+- **Sorted Views**: Automatically start at the first playable row (`isPlayable == true`).
+- **Filtered Playback**: Active search or filter constraints restrict playback strictly to the displayed songs while preserving duplicate tracks; Play is disabled when no matching song is playable.
 
-### 5. Sistema di Ricerca a Doppia Sorgente Isolato
-- Ricerca estesa su brani, artisti, album, playlist, podcast ed episodi, con scheda "Miglior Risultato" (Top Result) e visualizzazioni dedicate per tipologia.
-- **Isolamento delle Chiamate**: La ricerca del catalogo personale e la ricerca condivisa delle playlist operano in parallelo; se uno dei due servizi remoti fallisce o va in timeout, l'altra parte dei risultati viene comunque mostrata senza bloccare la schermata.
-- Supporto completo agli appunti di sistema (Taglia, Copia, Incolla, Seleziona tutto).
-- Layout reattivo dei campi di ricerca che evita sovrapposizioni con indicatori di stato o controlli del dispositivo in finestre o display compatti.
+### 2. Remote Device Control (Connect Controller)
+- Move playback seamlessly to external speakers, smart TVs, smartphones, or computers from the device picker.
+- Complete remote playback control: Play, Pause, Skip Next, Skip Previous, Seek, Shuffle, Repeat Mode, and Volume adjustment.
+- Long device lists scroll smoothly with fast response times.
 
-### 6. Home & Raccomandazioni Dinamiche
-- Feed iniziale composto da "Made for You", "Ascoltati di recente", i tuoi artisti e brani preferiti, e raccomandazioni algoritmiche.
-- Scorciatoie rapide per le playlist recenti con menu contestuale per ogni card della schermata.
+### 3. Local Network Discovery (mDNS / Zeroconf)
+- Discovers Spotify Connect receivers (`_spotify-connect._tcp.local.`) on the local WiFi network using Android Network Service Discovery (`NsdManager` / `JmDNS`) and iOS Bonjour (`Network.framework`).
+- Detects `librespot`, `spotifyd`, smart speakers, and hardware AV receivers.
+- **Intelligent Deduplication**: Groups and merges entries sharing the same `device_id`, prioritizing responding receiver names and eliminating duplicates in the picker.
 
-### 7. Pagine Artista & Album con Riconoscimento EP
-- **Pagina Artista**: Brani più popolari, discografia completa filtrabile (*Album*, *EP e singoli*, *Compilation*) e artisti correlati.
-- **Riconoscimento Distintivo EP**: Le uscite che la Web API raggruppa genericamente come singoli vengono etichettate esplicitamente come **EP** quando i metadati di streaming confermano tale classificazione.
-- **Paginazione Virtualizzata**: Nelle playlist e negli album, la barra di scorrimento riflette il numero totale effettivo dei brani; trascinando la vista su una sezione non ancora caricata in memoria, l'app richiede direttamente la porzione necessaria.
-- **Navigazione Immediata**: Il tocco sui nomi degli artisti nella barra del player apre la relativa pagina istantaneamente, anche prima che i metadati della Web API abbiano completato la sincronizzazione locale.
+### 4. Personal Library & Caching Infrastructure
+- Full navigation: Playlists, Liked Songs, Saved Albums, Followed Artists, Podcasts, and Saved Episodes.
+- Fast filtering, pinning, and custom reordering.
+- **Quick Actions**: Double-tap a playlist in the library to start instant playback; single tap opens detail view.
+- **Compact Tracklist Mode**: Settings toggle enabling a compressed one-line-per-song layout with spaced separators: `Title  ·  Artists  ·  Added date`.
+- **Flexible Sorting**: Sort by Name, Recent Plays, or Date Added. Follow Spotify's cloud order or keep an independent local arrangement.
+- **Liked Songs Pin Management**: Pin or unpin Liked Songs and customize its local position; placement survives application restarts.
+- **Smart EP Badge Detection**: Releases classified by the Web API as singles are explicitly badged as **EP** when metadata confirms 3 to 6 tracks.
+- **Instant Liked Songs Cache**: Opens instantaneously from an account-specific disk cache. Older items refresh silently in the background, while Like/Unlike actions reflect immediately via optimistic UI updates.
+- **Context Menus**: Long-press (or right-click) action sheets for albums, artists, and podcasts.
 
-### 8. Editing Avanzato Playlist & Drag-and-Drop
-- Creazione, ridenominazione, descrizione, riordino e cancellazione delle playlist.
-- **Auto-scroll ai Bordi**: Mantenendo premuto e trascinando un brano vicino al bordo superiore o inferiore della schermata, la lista scorre automaticamente per raggiungere posizioni fuori vista.
-- **Caricamento Copertina**: Selezione e upload di immagini personalizzate in formato JPEG o PNG.
-- **Selezione Multipla e Salvataggio Rapido**: La selezione di più righe mostra un badge di conteggio con evidenziazione neutrale traslucida (senza contorno); trascinando la selezione su *Liked Songs* si salvano simultaneamente tutte le tracce selezionate nell'ordine visualizzato.
-- **Inserimento Diretto tra Righe**: Rilasciando un brano (dal player bar, dalla coda o da un'altra lista) tra due righe di una playlist aperta ed editabile, la traccia viene inserita in quella precisa posizione lasciando invariata la coda di riproduzione corrente.
-- Supporto all'inserimento su playlist vuote e playlist collaborative condivise da altri utenti.
-- Menu "Aggiungi a playlist" con campo di filtro rapido per nome per localizzare all'istante la playlist di destinazione.
+### 5. Resilient Dual-Source Search Engine
+- Comprehensive search across tracks, artists, albums, playlists, podcasts, and episodes, with a hero "Top Result" card and dedicated per-type tabs.
+- **Fault-Tolerant Call Isolation**: Personal catalog search and shared playlist lookups execute concurrently in isolated asynchronous coroutines; if either fails or times out, the other displays its results without blocking the user.
+- System clipboard support: Cut, Copy, Paste, Select All.
+- Responsive search bar layout preventing overlap with system status bars, badges, or device controls.
+
+### 6. Dynamic Home & Recommendation Feeds
+- Personalized home screen featuring "Made for You", "Recently Played", top artists, top tracks, and algorithmic recommendation shelves.
+- Quick shortcut shelf cards with long-press context menus.
+
+### 7. Artist & Album Pages with Smart EP Detection
+- **Artist Pages**: Popular songs, filterable discography (*Albums*, *EPs & Singles*, *Compilations*), and related artists.
+- **Virtualized Scrolling**: In album and playlist views, scrollbars reflect the total track count; jumping to unloaded sections fetches that page directly.
+- **Instant Artist Navigation**: Tapping artist names anywhere in the app or player bar navigates to their profile immediately, even during initial local playback before Web API metadata finishes resolving.
+
+### 8. Advanced Playlist Editing & Drag-and-Drop
+- Create, rename, describe, reorder, and delete playlists.
+- **Edge Auto-Scroll**: Holding a dragged track near the top or bottom screen boundary scrolls the list smoothly to off-screen positions.
+- **Cover Art Upload**: Upload custom playlist covers (JPEG or PNG).
+- **Multi-Track Selection & Bulk Actions**: Select multiple rows with a selection count badge and translucent neutral highlight (without disruptive borders); drop the selection onto Liked Songs to bulk-save all selected tracks in displayed order.
+- **In-Place Insertion**: Dropping a song between rows of an editable playlist inserts it at that exact index without altering active queue playback.
+- Collaborative and shared playlist support with filterable destination search.
 
 ### 9. Deep Linking & Universal Links
-- Registrazione per la gestione dei link con schema proprietario `spotify:` (`spotify:track:...`, `spotify:album:...`, `spotify:artist:...`, `spotify:playlist:...`).
-- Gestione automatica dei collegamenti web universali `https://open.spotify.com/...`, aprendo direttamente l'entità corrispondente all'interno dell'app sia a processo già avviato che a freddo.
+- Registers intent handlers for native `spotify:` URIs (`spotify:track:...`, `spotify:album:...`, `spotify:artist:...`, `spotify:playlist:...`).
+- Handles `https://open.spotify.com/...` universal web links, opening the corresponding content directly in Vibe whether the app is already running or cold-launched.
 
-### 10. Gestione Coda Dinamica & Cronologia Separata
-- Coda visualizzabile come pannello laterale (su schermi grandi/tablet) o schermata dedicata, con indicazione chiara del contesto di origine.
-- **Aggiunta in Coda Intelligente**: L'azione "Aggiungi alla coda" inserisce i brani subito dopo quelli già accodati manualmente dall'utente e prima della continuazione del contesto automatico.
-- **Preservazione dei Duplicati**: L'accodamento di righe ripetute inserisce ogni occorrenza nell'ordine selezionato; un tocco ripetuto viene conteggiato una sola volta con notifica delle aggiunte effettive.
-- **Storico "Ascoltati di recente"**: Conserva separatamente le riproduzioni ripetute di brani brevi, inclusi i replay locali consecutivi della stessa traccia. Ogni elemento nello storico mostra immediatamente il brano nel player bar all'avvio della riproduzione.
+### 10. Dynamic Play Queue & Repeat History Tracking
+- Queue accessible as a side panel (tablets/foldables) or dedicated screen, identifying the originating context.
+- **Smart Queue Insertion**: "Add to Queue" inserts songs immediately after user-queued tracks and before continuous context playback.
+- **Duplicate Preservation**: Adding repeated playlist rows queues every occurrence in requested order; duplicate taps register once with verified addition counts.
+- **Accurate History**: "Recently Played" tracks repeated short songs separately, including consecutive local repeats of the same track. Tapping a history row launches it immediately in the player bar.
 
-### 11. Integrità Cache & Buffer per Checkpoint Playlist
-- **Verifica di Revisione**: Le playlist caricate dalla cache locale devono corrispondere alla revisione e al numero di tracce di Spotify prima di determinare l'ordine di riproduzione.
-- **Aggiornamenti Ottimistici**: Le modifiche pendenti rimangono visibili nella UI e vengono scritte definitivamente nella cache locale solo a scrittura remota confermata. In caso di refresh fallito, le righe correnti vengono preservate e viene data la possibilità di riprovare.
-- **Buffer di Checkpoint Streamed**: Il salvataggio e il caricamento dei grossi checkpoint JSON delle playlist avvengono attraverso un buffer di background a blocchi ridotti (64 KB), evitando allocazioni massive o duplicazioni dell'intero albero JSON nella memoria heap.
+### 11. Cache Integrity & Streamed Checkpoint Buffering
+- **Revision Sync**: Cached playlist data validates Spotify revision hashes and track counts before driving playback order.
+- **Optimistic State with Rollback Protection**: Pending playlist edits remain visible and are committed to local cache only after remote write confirmation. Failed refreshes preserve active rows and offer retry options.
+- **Streamed 64KB Checkpoint Buffer**: Checkpoint serialization reads and writes playlist JSON through a compact 64 KB streaming buffer, preventing memory spikes and eliminating duplicate JSON heap copies.
 
-### 12. Testi Sincronizzati (Lyrics)
-- Visualizzazione dei testi con evidenziazione e auto-scorrimento in tempo reale sincronizzato ai timestamp della traccia.
-- Modalità pannello laterale o a schermo intero.
-- Fallback automatico su testo non sincronizzato quando i timestamp non sono disponibili.
+### 12. Real-Time Synchronized Lyrics
+- Real-time lyrics display with automatic scrolling and highlight synchronization matching track timestamps.
+- Available in split side-panel view or immersive full-screen display.
+- Graceful automatic fallback to unsynchronized plain text lyrics.
 
-### 13. Ripristino Sessione all'Avvio
-- Al lancio dell'applicazione, l'ultimo brano in ascolto viene ripristinato in pausa esattamente alla posizione temporale in cui era stato interrotto.
-- Il pulsante Play riprende la traccia; i controlli di riproduzione (skip, seek, volume) sono interattivi prima ancora di riavviare l'audio.
+### 13. Session State Restoration on Launch
+- On launch, the last played track is restored paused at its exact stopping timestamp.
+- Immediate response: Play resumes playback; skip, seek, and volume controls are interactive prior to unpausing.
 
-### 14. Tema Dinamico con Tinting dalla Copertina (Dynamic Color)
-- Le schermate e la barra del player estraggono dinamicamente una tonalità d'accento dalla copertina dell'album in ascolto (tramite Palette API su Android e Color extraction su iOS).
-- Opzione nelle Impostazioni per disattivare il tinting dinamico a favore dei colori standard.
-- Supporto completo ai temi Chiaro, Scuro o basato sulle impostazioni di sistema.
+### 14. Dynamic Album Art Tinting & Material You Palette
+- Extracts dominant tonal accents dynamically from active album artwork (via AndroidX Palette on Android and CoreImage on iOS), subtly tinting player surfaces and backgrounds.
+- Settings toggle to disable dynamic color tinting.
+- Full support for Light Theme, Dark Theme, and Follow System.
 
 ---
 
-## Stack Tecnologico
+## Technology Stack
 
-| Componente | Android | iOS |
+| Domain | Android | iOS |
 |---|---|---|
-| **Linguaggio** | **Kotlin 2.0.20** | **Swift 5.10 / Swift 6** |
+| **Language** | **Kotlin 2.0.20** | **Swift 5.10 / Swift 6** |
 | **UI Framework** | Jetpack Compose + Material 3 | SwiftUI |
 | **Audio Engine** | AndroidX Media3 (ExoPlayer) + SimpleCache | AVFoundation / CoreAudio |
-| **Networking** | OkHttp 4.12 + Retrofit + Coroutines | URLSession + Swift Concurrency |
-| **Discovery mDNS** | Android `NsdManager` + JmDNS | `Network.framework` (Bonjour) |
-| **Persistenza Locale** | Room + DataStore | SwiftData / CoreData |
-| **Palette Copertine** | AndroidX Palette KTX | CoreImage / Vision Palette |
-| **Dependency Injection** | Koin | Swift Native Dependencies / Factory |
+| **Networking** | OkHttp 4.12 + Retrofit 2.11 + Coroutines | URLSession + Swift Concurrency |
+| **Serialization** | Kotlinx Serialization JSON 1.7 | Swift `Codable` |
+| **mDNS / Zeroconf** | Android `NsdManager` + JmDNS | `Network.framework` (Bonjour) |
+| **Persistence** | Room 2.6 + DataStore Preferences | SwiftData / CoreData |
+| **Dynamic Palette** | AndroidX Palette KTX | CoreImage / Vision Palette |
+| **Dependency Injection** | Koin 3.5 | Swift Dependencies / Factory Pattern |
+| **Localization (i18n)** | Android XML (`values/`, `values-it/`) | String Catalogs (`en.lproj`, `it.lproj`) |
 
 ---
 
-## Guida per Sviluppatori
+## Developer Guide & Getting Started
 
-### Requisiti
-- **Android**: JDK 17 o superiore, Android SDK (API 34).
-- **iOS**: macOS con Xcode 15 o superiore (quando inizierà l'integrazione del target iOS).
+### Prerequisites
+- **Android**: JDK 17 or 21, Android SDK (API 34).
+- **iOS**: macOS Sonoma or later with Xcode 15+.
 
-### Esecuzione e Compilazione Android
-
-Tutti i moduli Android sono strutturati con il Version Catalog (`gradle/libs.versions.toml`).
+### Building Android
+All dependencies and versions are declared in the Gradle Version Catalog (`android/gradle/libs.versions.toml`).
 
 ```bash
 cd android
 
-# Verifica delle dipendenze e build del modulo principale
+# Compile and build the debug APK
 ./gradlew :app:assembleDebug
 
-# Esecuzione dei test unitari
+# Run unit tests across all modules
 ./gradlew test
 ```
 
-### Struttura iOS
-La directory `ios/` contiene già l'alberatura completa dei moduli con file `.gitkeep` pronta per l'aggiunta dei file `.swift` e la configurazione del progetto Xcode / Swift Package Manager.
+### iOS Setup
+The `ios/` directory contains the complete modular directory tree with `.gitkeep` files and localization catalogs, ready for Xcode project linking and Swift development.

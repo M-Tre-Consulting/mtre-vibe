@@ -19,7 +19,14 @@ fun SearchScreen(
 ) {
     var query by remember { mutableStateOf("") }
     var selectedCategoryIndex by remember { mutableIntStateOf(0) }
-    val categories = listOf("All", "Songs", "Artists", "Albums", "Playlists", "Podcasts")
+    val categoryResIds = listOf(
+        com.vibe.core.ui.R.string.search_tab_all,
+        com.vibe.core.ui.R.string.search_tab_songs,
+        com.vibe.core.ui.R.string.search_tab_artists,
+        com.vibe.core.ui.R.string.search_tab_albums,
+        com.vibe.core.ui.R.string.search_tab_playlists,
+        com.vibe.core.ui.R.string.search_tab_podcasts
+    )
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         SearchBar(
@@ -31,12 +38,12 @@ fun SearchScreen(
             onSearch = {},
             active = false,
             onActiveChange = {},
-            placeholder = { Text("What do you want to listen to?") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            placeholder = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.search_placeholder)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { query = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        Icon(Icons.Default.Clear, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.search_clear))
                     }
                 }
             },
@@ -49,11 +56,11 @@ fun SearchScreen(
             selectedTabIndex = selectedCategoryIndex,
             edgePadding = 0.dp
         ) {
-            categories.forEachIndexed { index, category ->
+            categoryResIds.forEachIndexed { index, resId ->
                 Tab(
                     selected = selectedCategoryIndex == index,
                     onClick = { selectedCategoryIndex = index },
-                    text = { Text(category) }
+                    text = { Text(androidx.compose.ui.res.stringResource(resId)) }
                 )
             }
         }

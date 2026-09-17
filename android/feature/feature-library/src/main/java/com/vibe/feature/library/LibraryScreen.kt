@@ -32,7 +32,10 @@ fun LibraryScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Your Library", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_title),
+                style = MaterialTheme.typography.headlineMedium
+            )
             IconButton(onClick = {
                 // Cycle sort order: Name -> Recent -> Date
                 currentSortOrder = when (currentSortOrder) {
@@ -42,7 +45,7 @@ fun LibraryScreen(
                 }
                 onSortOrderChange(currentSortOrder)
             }) {
-                Icon(Icons.Default.Sort, contentDescription = "Sort order")
+                Icon(Icons.Default.Sort, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_sort_order))
             }
         }
 
@@ -65,10 +68,20 @@ fun LibraryScreen(
                         Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Liked Songs", style = MaterialTheme.typography.titleMedium)
-                            Text("Auto-cached locally", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_liked_songs),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_auto_cached),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        Icon(Icons.Default.PushPin, contentDescription = "Pinned", modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.PushPin,
+                            contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_pinned),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -84,10 +97,17 @@ fun LibraryScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(playlist.name, style = MaterialTheme.typography.titleMedium)
-                            Text("${playlist.totalTracks} tracks", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_tracks_count, playlist.totalTracks),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                         if (playlist.isPinned) {
-                            Icon(Icons.Default.PushPin, contentDescription = "Pinned", modifier = Modifier.size(16.dp))
+                            Icon(
+                                Icons.Default.PushPin,
+                                contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.library_pinned),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }

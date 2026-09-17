@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">Vibe</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Cerca</string>
+    <string name="nav_library">La tua libreria</string>
+
+    <!-- Welcome / Auth -->
+    <string name="welcome_title">Benvenuto su Vibe</string>
+    <string name="welcome_subtitle">Client nativo ad alte prestazioni per Spotify. Connetti il tuo account per iniziare.</string>
+    <string name="connect_with_spotify">Connetti con Spotify</string>
+    <string name="connected_success">Connesso a Spotify!</string>
+    <string name="login_error">Errore di accesso: %s</string>
+
+    <!-- Home -->
+    <string name="home_made_for_you">Create per te</string>
+    <string name="home_recently_played">Ascoltati di recente</string>
+    <string name="home_mix_prefix">Mix n. %d</string>
+    <string name="home_recent_prefix">Recente n. %d</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Cosa vuoi ascoltare?</string>
+    <string name="search_tab_all">Tutto</string>
+    <string name="search_tab_songs">Brani</string>
+    <string name="search_tab_artists">Artisti</string>
+    <string name="search_tab_albums">Album</string>
+    <string name="search_tab_playlists">Playlist</string>
+    <string name="search_tab_podcasts">Podcast</string>
+    <string name="search_clear">Cancella</string>
+
+    <!-- Library -->
+    <string name="library_title">La tua libreria</string>
+    <string name="library_liked_songs">Brani che ti piacciono</string>
+    <string name="library_auto_cached">Memorizzati nella cache locale</string>
+    <string name="library_tracks_count">%d brani</string>
+    <string name="library_sort_order">Ordinamento</string>
+    <string name="library_pinned">Fissato</string>
+
+    <!-- Playlist -->
+    <string name="playlist_songs_count">%1$s • %2$d brani</string>
+    <string name="playlist_play">Riproduci</string>
+    <string name="playlist_refresh">Aggiorna playlist</string>
+    <string name="playlist_more_options">Altre opzioni</string>
+
+    <!-- Artist -->
+    <string name="artist_monthly_listeners">%d ascoltatori mensili</string>
+    <string name="artist_following">Segui già</string>
+    <string name="artist_follow">Segui</string>
+    <string name="artist_popular_songs">Brani più popolari</string>
+    <string name="artist_discography">Discografia</string>
+    <string name="artist_discography_albums">Album</string>
+    <string name="artist_discography_eps_singles">EP e singoli</string>
+    <string name="artist_discography_compilations">Raccolte</string>
+
+    <!-- Album -->
+    <string name="album_type_ep">EP</string>
+    <string name="album_type_single">Singolo</string>
+    <string name="album_type_compilation">Raccolta</string>
+    <string name="album_type_album">Album</string>
+
+    <!-- Player -->
+    <string name="player_now_playing">In riproduzione</string>
+    <string name="player_play">Riproduci</string>
+    <string name="player_pause">Pausa</string>
+    <string name="player_skip_next">Successivo</string>
+    <string name="player_skip_previous">Precedente</string>
+    <string name="player_collapse">Riduci a icona</string>
+    <string name="player_lyrics">Testo</string>
+    <string name="player_queue">Coda</string>
+    <string name="player_devices">Dispositivi</string>
+
+    <!-- Queue -->
+    <string name="queue_title">Coda di riproduzione</string>
+    <string name="queue_close">Chiudi coda</string>
+    <string name="queue_from">Da: %s</string>
+    <string name="queue_next">Prossimi in coda</string>
+    <string name="queue_next_from">Prossimi da: %s</string>
+    <string name="queue_history">Ascoltati di recente (Cronologia)</string>
+
+    <!-- Lyrics -->
+    <string name="lyrics_title">Testo del brano</string>
+    <string name="lyrics_close">Chiudi testo</string>
+    <string name="lyrics_not_available">Testo non disponibile per questo brano</string>
+
+    <!-- Devices -->
+    <string name="devices_title">Connetti a un dispositivo</string>
+    <string name="devices_available_speakers">In ascolto su / Dispositivi disponibili</string>
+    <string name="devices_this_device">Questo dispositivo (In riproduzione)</string>
+    <string name="devices_spotify_connect">Spotify Connect</string>
+    <string name="devices_close">Chiudi</string>
+</resources>

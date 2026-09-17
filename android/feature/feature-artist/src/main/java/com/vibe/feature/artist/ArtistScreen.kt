@@ -32,17 +32,26 @@ fun ArtistScreen(
             ) {
                 Text(artist.name, style = MaterialTheme.typography.headlineLarge)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("${artist.monthlyListeners} monthly listeners", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.artist_monthly_listeners, artist.monthlyListeners),
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = onFollowClick) {
-                    Text(if (artist.isFollowed) "Following" else "Follow")
+                    Text(
+                        if (artist.isFollowed) androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.artist_following)
+                        else androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.artist_follow)
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
 
         item {
-            Text("Popular Songs", style = MaterialTheme.typography.titleLarge)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.artist_popular_songs),
+                style = MaterialTheme.typography.titleLarge
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
@@ -55,15 +64,25 @@ fun ArtistScreen(
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Discography", style = MaterialTheme.typography.titleLarge)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.artist_discography),
+                style = MaterialTheme.typography.titleLarge
+            )
             Spacer(modifier = Modifier.height(8.dp))
 
+            val filterResIds = listOf(
+                com.vibe.core.ui.R.string.artist_discography_albums,
+                com.vibe.core.ui.R.string.artist_discography_eps_singles,
+                com.vibe.core.ui.R.string.artist_discography_compilations
+            )
+
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                filterOptions.forEachIndexed { index, label ->
+                filterResIds.forEachIndexed { index, resId ->
+                    val label = androidx.compose.ui.res.stringResource(resId)
                     SegmentedButton(
                         selected = discographyFilter == label,
                         onClick = { discographyFilter = label },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filterOptions.size)
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filterResIds.size)
                     ) {
                         Text(label)
                     }

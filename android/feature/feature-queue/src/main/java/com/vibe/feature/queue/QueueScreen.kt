@@ -27,9 +27,15 @@ fun QueueScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Play Queue", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_title),
+                style = MaterialTheme.typography.headlineMedium
+            )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close Queue")
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_close)
+                )
             }
         }
 
@@ -37,9 +43,17 @@ fun QueueScreen(
 
         // Currently Playing
         queue.currentlyPlaying?.let { current ->
-            Text("Now Playing", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_now_playing),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
             queue.contextName?.let {
-                Text("From: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_from, it),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             TrackRow(track = current, onClick = { onTrackClick(current) })
             Spacer(modifier = Modifier.height(16.dp))
@@ -52,7 +66,10 @@ fun QueueScreen(
             // User-added queue (inserted before context tracks)
             if (queue.userQueue.isNotEmpty()) {
                 item {
-                    Text("Next in Queue", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_next),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
                 items(queue.userQueue) { track ->
                     TrackRow(track = track, onClick = { onTrackClick(track) })
@@ -63,7 +80,13 @@ fun QueueScreen(
             if (queue.contextQueue.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Next From: ${queue.contextName ?: "Context"}", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        androidx.compose.ui.res.stringResource(
+                            com.vibe.core.ui.R.string.queue_next_from,
+                            queue.contextName ?: ""
+                        ),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
                 items(queue.contextQueue) { track ->
                     TrackRow(track = track, onClick = { onTrackClick(track) })
@@ -74,7 +97,10 @@ fun QueueScreen(
             if (queue.recentHistory.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Recently Played (History)", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_history),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
                 items(queue.recentHistory) { record ->
                     TrackRow(track = record.track, onClick = { onTrackClick(record.track) })
