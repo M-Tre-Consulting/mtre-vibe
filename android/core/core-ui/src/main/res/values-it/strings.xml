@@ -102,7 +102,10 @@
     <!-- Devices -->
     <string name="devices_title">Connetti a un dispositivo</string>
     <string name="devices_available_speakers">In ascolto su / Dispositivi disponibili</string>
-    <string name="devices_this_device">Questo dispositivo (In riproduzione)</string>
+    <string name="devices_this_phone">Questo smartphone (Locale)</string>
+    <string name="devices_this_phone_subtitle_playing">In riproduzione su questo smartphone</string>
+    <string name="devices_this_phone_subtitle_tap">Tocca per riprodurre su questo telefono</string>
     <string name="devices_spotify_connect">Spotify Connect</string>
+    <string name="devices_remote_playing">In riproduzione su Spotify Connect</string>
     <string name="devices_close">Chiudi</string>
 </resources>

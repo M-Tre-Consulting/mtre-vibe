@@ -72,6 +72,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleIncomingIntent(intent)
 
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
         setContent {
             val authState by authManager.authState.collectAsState(initial = AuthState.Loading)
             val playbackState by audioPlayer.playbackState.collectAsState()
@@ -239,122 +245,123 @@ class MainActivity : ComponentActivity() {
                                                 activeArtist?.let { artist ->
                                                     SwipeBackContainer(onBack = { activeArtist = null }) {
                                                         ArtistScreen(
-                                                            artist = artist,
-                                                            onBack = { activeArtist = null },
-                                                            onTrackClick = { track ->
-                                                                audioPlayer.playTrack(track, artist.topTracks)
-                                                            },
-                                                            onAlbumClick = { albumId ->
-                                                                lifecycleScope.launch {
-                                                                    apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
-                                                                }
-                                                            }
-                                                        )
-                                                    }
-                                                    BackHandler { activeArtist = null }
-                                                }
-                                            }
-                                            "album" -> {
-                                                activeAlbum?.let { album ->
-                                                    SwipeBackContainer(onBack = { activeAlbum = null }) {
-                                                        AlbumScreen(
-                                                            album = album,
-                                                            onBack = { activeAlbum = null },
-                                                            onTrackClick = { track, index ->
-                                                                audioPlayer.playFilteredCollection(album.tracks, index)
-                                                            }
-                                                        )
-                                                    }
-                                                    BackHandler { activeAlbum = null }
-                                                }
-                                            }
-                                            "playlist" -> {
-                                                activePlaylist?.let { playlist ->
-                                                    SwipeBackContainer(onBack = { activePlaylist = null }) {
-                                                        PlaylistScreen(
-                                                            playlist = playlist,
-                                                            onBack = { activePlaylist = null },
-                                                            onPlayClick = {
-                                                                if (playlist.tracks.isNotEmpty()) {
-                                                                    audioPlayer.playTrack(playlist.tracks.first(), playlist.tracks)
-                                                                }
-                                                            },
-                                                            onTrackClick = { track, index ->
-                                                                audioPlayer.playFilteredCollection(playlist.tracks, index)
-                                                            }
-                                                        )
-                                                    }
-                                                    BackHandler { activePlaylist = null }
-                                                }
-                                            }
-                                            "home" -> HomeScreen(
-                                                playlists = userPlaylists,
-                                                recentTracks = userLikedTracks,
-                                                onPlaylistClick = { playlistId ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getPlaylist(playlistId).onSuccess { p ->
-                                                            activePlaylist = p
-                                                        }
-                                                    }
-                                                },
-                                                onTrackClick = { track, tracks ->
-                                                    audioPlayer.playTrack(track, tracks)
-                                                }
-                                            )
-                                            "search" -> SearchScreen(
-                                                searchManager = searchManager,
-                                                onTrackClick = { track, contextTracks ->
-                                                    audioPlayer.playTrack(track, contextTracks)
-                                                },
-                                                onArtistClick = { artistId ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getArtist(artistId).onSuccess { activeArtist = it }
-                                                    }
-                                                },
-                                                onAlbumClick = { albumId ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
-                                                    }
-                                                },
-                                                onPlaylistClick = { playlistId ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getPlaylist(playlistId).onSuccess { activePlaylist = it }
-                                                    }
-                                                }
-                                            )
-                                            "library" -> LibraryScreen(
-                                                playlists = userPlaylists,
-                                                onOpenLikedSongs = {
-                                                    lifecycleScope.launch {
-                                                        apiService.getLikedSongs(0, 50).onSuccess { tracks ->
-                                                            if (tracks.isNotEmpty()) {
-                                                                audioPlayer.playFilteredCollection(tracks, 0)
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                onPlaylistClick = { playlist ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getPlaylist(playlist.id).onSuccess { activePlaylist = it }
-                                                    }
-                                                },
-                                                onPlaylistDoubleClick = { playlist ->
-                                                    lifecycleScope.launch {
-                                                        apiService.getPlaylist(playlist.id).onSuccess { p ->
-                                                            if (p.tracks.isNotEmpty()) {
-                                                                audioPlayer.playTrack(p.tracks.first(), p.tracks)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                                                             artist = artist,
+                                                             onBack = { activeArtist = null },
+                                                             onTrackClick = { track ->
+                                                                 playLocalTrack(track, artist.topTracks)
+                                                             },
+                                                             onAlbumClick = { albumId ->
+                                                                 lifecycleScope.launch {
+                                                                     apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                                 }
+                                                             }
+                                                         )
+                                                     }
+                                                     BackHandler { activeArtist = null }
+                                                 }
+                                             }
+                                             "album" -> {
+                                                 activeAlbum?.let { album ->
+                                                     SwipeBackContainer(onBack = { activeAlbum = null }) {
+                                                         AlbumScreen(
+                                                             album = album,
+                                                             onBack = { activeAlbum = null },
+                                                             onTrackClick = { track, index ->
+                                                                 playLocalCollection(album.tracks, index)
+                                                             }
+                                                         )
+                                                     }
+                                                     BackHandler { activeAlbum = null }
+                                                 }
+                                             }
+                                             "playlist" -> {
+                                                 activePlaylist?.let { playlist ->
+                                                     SwipeBackContainer(onBack = { activePlaylist = null }) {
+                                                         PlaylistScreen(
+                                                             playlist = playlist,
+                                                             onBack = { activePlaylist = null },
+                                                             onPlayClick = {
+                                                                 if (playlist.tracks.isNotEmpty()) {
+                                                                     playLocalTrack(playlist.tracks.first(), playlist.tracks)
+                                                                 }
+                                                             },
+                                                             onTrackClick = { track, index ->
+                                                                 playLocalCollection(playlist.tracks, index)
+                                                             }
+                                                         )
+                                                     }
+                                                     BackHandler { activePlaylist = null }
+                                                 }
+                                             }
+                                             "home" -> HomeScreen(
+                                                 playlists = userPlaylists,
+                                                 recentTracks = userLikedTracks,
+                                                 onPlaylistClick = { playlistId ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getPlaylist(playlistId).onSuccess { p ->
+                                                             activePlaylist = p
+                                                         }
+                                                     }
+                                                 },
+                                                 onTrackClick = { track, tracks ->
+                                                     playLocalTrack(track, tracks)
+                                                 }
+                                             )
+                                             "search" -> SearchScreen(
+                                                 searchManager = searchManager,
+                                                 onTrackClick = { track, contextTracks ->
+                                                     playLocalTrack(track, contextTracks)
+                                                 },
+                                                 onArtistClick = { artistId ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                     }
+                                                 },
+                                                 onAlbumClick = { albumId ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                     }
+                                                 },
+                                                 onPlaylistClick = { playlistId ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getPlaylist(playlistId).onSuccess { activePlaylist = it }
+                                                     }
+                                                 }
+                                             )
+                                             "library" -> LibraryScreen(
+                                                 playlists = userPlaylists,
+                                                 onOpenLikedSongs = {
+                                                     lifecycleScope.launch {
+                                                         apiService.getLikedSongs(0, 50).onSuccess { tracks ->
+                                                             if (tracks.isNotEmpty()) {
+                                                                 playLocalCollection(tracks, 0)
+                                                             }
+                                                         }
+                                                     }
+                                                 },
+                                                 onPlaylistClick = { playlist ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getPlaylist(playlist.id).onSuccess { activePlaylist = it }
+                                                     }
+                                                 },
+                                                 onPlaylistDoubleClick = { playlist ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getPlaylist(playlist.id).onSuccess { p ->
+                                                             if (p.tracks.isNotEmpty()) {
+                                                                 playLocalTrack(p.tracks.first(), p.tracks)
+                                                             }
+                                                         }
+                                                     }
+                                                 }
+                                             )
+                                         }
+                                     }
+                                 }
+                             }
 
                             // Full Player Screen Modal
                             if (isFullPlayerVisible && playbackState.currentTrack != null) {
+                                BackHandler { isFullPlayerVisible = false }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -370,23 +377,39 @@ class MainActivity : ComponentActivity() {
                                         onSkipPrevious = { audioPlayer.skipToPrevious() },
                                         onSeekTo = { pos -> audioPlayer.seekTo(pos) },
                                         onClose = { isFullPlayerVisible = false },
-                                        onOpenDevices = { isDevicesDialogVisible = true }
+                                        onOpenDevices = { isDevicesDialogVisible = true },
+                                        onArtistClick = { artistId ->
+                                            isFullPlayerVisible = false
+                                            lifecycleScope.launch {
+                                                apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                            }
+                                        }
                                     )
                                 }
                             }
 
                             // Connect Devices Dialog
                             if (isDevicesDialogVisible) {
+                                val anyRemoteActive = devices.any { it.isActive && it.name != android.os.Build.MODEL }
                                 DevicesDialog(
                                     devices = devices,
+                                    isLocalPlaybackActive = !anyRemoteActive,
+                                    onSelectLocalPlayback = {
+                                        lifecycleScope.launch {
+                                            apiService.pausePlayback()
+                                            audioPlayer.resume()
+                                            isDevicesDialogVisible = false
+                                        }
+                                    },
                                     onSelectDevice = { dev ->
                                         lifecycleScope.launch {
+                                            audioPlayer.pause()
                                             apiService.transferPlayback(dev.id, play = true)
                                             isDevicesDialogVisible = false
                                         }
                                     },
                                     onVolumeChange = { dev, vol ->
-                                        // Update device volume
+                                        audioPlayer.setVolume(vol.toFloat() / 100f)
                                     },
                                     onDismiss = { isDevicesDialogVisible = false }
                                 )
@@ -396,6 +419,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun playLocalTrack(track: Track, contextTracks: List<Track> = emptyList()) {
+        lifecycleScope.launch {
+            try {
+                apiService.pausePlayback()
+            } catch (_: Exception) {}
+        }
+        audioPlayer.playTrack(track, contextTracks)
+    }
+
+    private fun playLocalCollection(tracks: List<Track>, startIndex: Int) {
+        lifecycleScope.launch {
+            try {
+                apiService.pausePlayback()
+            } catch (_: Exception) {}
+        }
+        audioPlayer.playFilteredCollection(tracks, startIndex)
     }
 
     override fun onStart() {

@@ -101,8 +101,11 @@
 
     <!-- Devices -->
     <string name="devices_title">Connect to a device</string>
-    <string name="devices_available_speakers">Listening On / Available Speakers</string>
-    <string name="devices_this_device">This Device (Playing)</string>
+    <string name="devices_available_speakers">Listening on / Available devices</string>
+    <string name="devices_this_phone">This Phone (Local)</string>
+    <string name="devices_this_phone_subtitle_playing">Playing on this phone</string>
+    <string name="devices_this_phone_subtitle_tap">Tap to play on this phone</string>
     <string name="devices_spotify_connect">Spotify Connect</string>
+    <string name="devices_remote_playing">Playing on Spotify Connect</string>
     <string name="devices_close">Close</string>
 </resources>

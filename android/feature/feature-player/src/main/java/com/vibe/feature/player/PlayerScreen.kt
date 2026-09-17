@@ -189,11 +189,21 @@ fun FullPlayerScreen(
                 .padding(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(64.dp))
+            val coverArt = track.album.imageUrl
+            if (!coverArt.isNullOrBlank()) {
+                AsyncImage(
+                    model = coverArt,
+                    contentDescription = track.album.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(64.dp))
+                }
             }
         }
 
@@ -221,12 +231,18 @@ fun FullPlayerScreen(
                 onValueChangeFinished = { onSeekTo(sliderPosition.toLong()) },
                 valueRange = 0f..playbackState.durationMs.coerceAtLeast(1L).toFloat()
             )
+            val formatMs: (Long) -> String = { ms ->
+                val totalSecs = (ms / 1000).toInt()
+                val mins = totalSecs / 60
+                val secs = totalSecs % 60
+                "%d:%02d".format(mins, secs)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("${(sliderPosition / 1000).toInt()}s", style = MaterialTheme.typography.bodySmall)
-                Text("${(playbackState.durationMs / 1000).toInt()}s", style = MaterialTheme.typography.bodySmall)
+                Text(formatMs(sliderPosition.toLong()), style = MaterialTheme.typography.bodySmall)
+                Text(formatMs(playbackState.durationMs), style = MaterialTheme.typography.bodySmall)
             }
         }
 

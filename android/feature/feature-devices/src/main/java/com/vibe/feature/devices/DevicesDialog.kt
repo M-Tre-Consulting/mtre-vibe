@@ -1,5 +1,6 @@
 package com.vibe.feature.devices
 
+import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +17,8 @@ import com.vibe.core.model.DeviceType
 @Composable
 fun DevicesDialog(
     devices: List<Device>,
+    isLocalPlaybackActive: Boolean = true,
+    onSelectLocalPlayback: () -> Unit = {},
     onSelectDevice: (Device) -> Unit,
     onVolumeChange: (Device, Int) -> Unit,
     onDismiss: () -> Unit
@@ -29,7 +32,50 @@ fun DevicesDialog(
             )
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)) {
+                // 1. This Phone (Local playback option)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isLocalPlaybackActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    onClick = onSelectLocalPlayback
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Smartphone,
+                            contentDescription = null,
+                            tint = if (isLocalPlaybackActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${Build.MODEL} (${androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_this_phone)})",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (isLocalPlaybackActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (isLocalPlaybackActive) {
+                                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_playing)
+                                } else {
+                                    androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_tap)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
                     androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_available_speakers),
                     style = MaterialTheme.typography.bodySmall,
@@ -37,14 +83,16 @@ fun DevicesDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Long device lists scroll
+                val remoteDevices = devices.filter { it.name != Build.MODEL }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(devices, key = { it.id }) { device ->
+                    items(remoteDevices, key = { it.id }) { device ->
                         DeviceItemRow(
                             device = device,
+                            isCurrentlyActive = !isLocalPlaybackActive && device.isActive,
                             onSelect = { onSelectDevice(device) },
                             onVolumeChange = { vol -> onVolumeChange(device, vol) }
                         )
@@ -63,6 +111,7 @@ fun DevicesDialog(
 @Composable
 fun DeviceItemRow(
     device: Device,
+    isCurrentlyActive: Boolean,
     onSelect: () -> Unit,
     onVolumeChange: (Int) -> Unit
 ) {
@@ -71,7 +120,7 @@ fun DeviceItemRow(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (device.isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isCurrentlyActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ),
         onClick = onSelect
     ) {
@@ -87,24 +136,25 @@ fun DeviceItemRow(
                         else -> Icons.Default.Speaker
                     },
                     contentDescription = null,
-                    tint = if (device.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    tint = if (isCurrentlyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = device.name,
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (device.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        color = if (isCurrentlyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (device.isActive) androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_this_device)
+                        text = if (isCurrentlyActive) androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_remote_playing)
                                else androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_spotify_connect),
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            if (device.isActive && device.supportsVolume) {
+            if (isCurrentlyActive && device.supportsVolume) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Slider(
                     value = volume.toFloat(),

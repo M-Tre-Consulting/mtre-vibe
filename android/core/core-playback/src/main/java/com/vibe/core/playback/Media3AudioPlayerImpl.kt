@@ -1,12 +1,16 @@
 package com.vibe.core.playback
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
@@ -51,6 +55,9 @@ class Media3AudioPlayerImpl(
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
+
+    private var currentPlaylist: List<Track> = emptyList()
+    private var currentTrackIndex: Int = -1
 
     private val audioCacheDir = File(context.cacheDir, "vibe_audio_cache")
     private val audioCache: SimpleCache by lazy {
@@ -113,6 +120,15 @@ class Media3AudioPlayerImpl(
                             durationMs = duration.coerceAtLeast(0L)
                         )
                     }
+
+                    if (state == Player.STATE_ENDED) {
+                        if (_playbackState.value.repeatMode == RepeatMode.ONE) {
+                            seekTo(0L)
+                            play()
+                        } else {
+                            skipToNext()
+                        }
+                    }
                 }
 
                 override fun onPositionDiscontinuity(
@@ -138,25 +154,68 @@ class Media3AudioPlayerImpl(
             })
         }
 
+    private val forwardingPlayer = object : ForwardingPlayer(exoPlayer) {
+        override fun getAvailableCommands(): Player.Commands {
+            val base = super.getAvailableCommands().buildUpon()
+            base.add(Player.COMMAND_SEEK_TO_NEXT)
+            base.add(Player.COMMAND_SEEK_TO_PREVIOUS)
+            return base.build()
+        }
+
+        override fun isCommandAvailable(command: Int): Boolean {
+            if (command == Player.COMMAND_SEEK_TO_NEXT || command == Player.COMMAND_SEEK_TO_PREVIOUS) return true
+            return super.isCommandAvailable(command)
+        }
+
+        override fun seekToNext() {
+            skipToNext()
+        }
+
+        override fun seekToNextMediaItem() {
+            skipToNext()
+        }
+
+        override fun seekToPrevious() {
+            skipToPrevious()
+        }
+
+        override fun seekToPreviousMediaItem() {
+            skipToPrevious()
+        }
+    }
+
     val mediaSession: MediaSession by lazy {
-        MediaSession.Builder(context, exoPlayer)
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        val pendingIntent = if (launchIntent != null) {
+            PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        } else null
+
+        MediaSession.Builder(context, forwardingPlayer)
             .setId("VibeMediaSession")
+            .apply {
+                if (pendingIntent != null) {
+                    setSessionActivity(pendingIntent)
+                }
+            }
             .build()
     }
 
     private fun ensureMediaServiceStarted() {
         try {
-            val intent = android.content.Intent().setClassName(
+            val intent = Intent().setClassName(
                 context.packageName,
                 "com.vibe.app.playback.VibeMediaSessionService"
             )
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            // Start the service normally. MediaSessionService handles entering foreground
+            // safely with its internal MediaNotificationManager without hitting the 30s timeout.
+            context.startService(intent)
         } catch (e: Exception) {
-            Log.d(TAG, "Foreground service start attempt: ${e.message}")
+            Log.d(TAG, "Media service start attempt: ${e.message}")
         }
     }
 
@@ -180,6 +239,22 @@ class Media3AudioPlayerImpl(
     }
 
     override fun playTrack(track: Track, contextTracks: List<Track>) {
+        currentPlaylist = contextTracks.ifEmpty { listOf(track) }
+        currentTrackIndex = currentPlaylist.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        playTrackInternal(track)
+    }
+
+    override fun playFilteredCollection(tracks: List<Track>, startIndex: Int) {
+        val playableTracks = tracks.filter { it.isPlayable }
+        if (playableTracks.isEmpty()) return
+
+        currentPlaylist = playableTracks
+        val validIndex = startIndex.coerceIn(0, playableTracks.lastIndex)
+        currentTrackIndex = validIndex
+        playTrackInternal(playableTracks[validIndex])
+    }
+
+    private fun playTrackInternal(track: Track) {
         _playbackState.update {
             it.copy(
                 currentTrack = track,
@@ -208,41 +283,13 @@ class Media3AudioPlayerImpl(
                     )
                 }
             }
-        }
-    }
 
-    override fun playFilteredCollection(tracks: List<Track>, startIndex: Int) {
-        val playableTracks = tracks.filter { it.isPlayable }
-        if (playableTracks.isEmpty()) return
-
-        val validIndex = startIndex.coerceIn(0, playableTracks.lastIndex)
-        val selected = playableTracks[validIndex]
-
-        _playbackState.update {
-            it.copy(
-                currentTrack = selected,
-                isBuffering = true,
-                isPlaying = false,
-                positionMs = 0L,
-                durationMs = selected.durationMs
-            )
-        }
-
-        scope.launch {
-            val resolvedUrl = TrackAudioResolver.resolveAudioUrl(selected)
-            if (!resolvedUrl.isNullOrBlank()) {
-                Log.d(TAG, "Playing collection track locally: ${selected.name} from $resolvedUrl")
-                val mediaItem = buildMediaItem(selected, resolvedUrl)
-                exoPlayer.setMediaItem(mediaItem)
-                exoPlayer.prepare()
-                exoPlayer.play()
-            } else {
-                _playbackState.update {
-                    it.copy(
-                        isBuffering = false,
-                        isPlaying = false,
-                        isPaused = true
-                    )
+            // Prefetch next track audio URL in background
+            val nextIdx = currentTrackIndex + 1
+            if (nextIdx < currentPlaylist.size) {
+                val nextTrack = currentPlaylist[nextIdx]
+                launch(Dispatchers.IO) {
+                    TrackAudioResolver.resolveAudioUrl(nextTrack)
                 }
             }
         }
@@ -275,16 +322,31 @@ class Media3AudioPlayerImpl(
     }
 
     override fun skipToNext() {
-        if (exoPlayer.hasNextMediaItem()) {
-            exoPlayer.seekToNextMediaItem()
+        if (currentPlaylist.isEmpty()) return
+        val nextIndex = currentTrackIndex + 1
+        if (nextIndex < currentPlaylist.size) {
+            currentTrackIndex = nextIndex
+            playTrackInternal(currentPlaylist[nextIndex])
+        } else if (_playbackState.value.repeatMode == RepeatMode.ALL) {
+            currentTrackIndex = 0
+            playTrackInternal(currentPlaylist[0])
         }
     }
 
     override fun skipToPrevious() {
-        if (exoPlayer.hasPreviousMediaItem()) {
-            exoPlayer.seekToPreviousMediaItem()
+        if (exoPlayer.currentPosition > 3000L) {
+            exoPlayer.seekTo(0L)
+            _playbackState.update { it.copy(positionMs = 0L) }
+            return
+        }
+        if (currentPlaylist.isEmpty()) return
+        val prevIndex = (currentTrackIndex - 1).coerceAtLeast(0)
+        if (prevIndex != currentTrackIndex) {
+            currentTrackIndex = prevIndex
+            playTrackInternal(currentPlaylist[prevIndex])
         } else {
-            seekTo(0L)
+            exoPlayer.seekTo(0L)
+            _playbackState.update { it.copy(positionMs = 0L) }
         }
     }
 
@@ -332,10 +394,22 @@ class Media3AudioPlayerImpl(
             .build()
 
         val uriString = overrideUrl ?: track.previewUrl ?: track.uri
-        return MediaItem.Builder()
+        val mimeType = when {
+            uriString.contains(".m4a", ignoreCase = true) || uriString.contains(".mp4", ignoreCase = true) -> MimeTypes.AUDIO_AAC
+            uriString.contains(".mp3", ignoreCase = true) || uriString.contains("p.scdn.co", ignoreCase = true) -> MimeTypes.AUDIO_MPEG
+            uriString.contains(".ogg", ignoreCase = true) -> MimeTypes.AUDIO_OGG
+            else -> null
+        }
+
+        val builder = MediaItem.Builder()
             .setMediaId(track.id)
             .setUri(uriString)
             .setMediaMetadata(metadata)
-            .build()
+
+        if (mimeType != null) {
+            builder.setMimeType(mimeType)
+        }
+
+        return builder.build()
     }
 }
