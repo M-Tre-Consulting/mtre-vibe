@@ -13,6 +13,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
 
+import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.auth.SpotifyAuthConfig
 
 val appModule = module {
@@ -39,6 +40,8 @@ val appModule = module {
     }
 
     single { ConnectDeviceManager(context = get()) }
+
+    single { DualSearchManager(apiService = get()) }
 
     single {
         LikedSongsCacheManager(

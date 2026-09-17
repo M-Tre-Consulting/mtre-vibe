@@ -29,18 +29,26 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import androidx.activity.compose.BackHandler
 import com.vibe.core.connect.ConnectDeviceManager
+import com.vibe.core.model.Album
+import com.vibe.core.model.Artist
+import com.vibe.core.model.Playlist
+import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.auth.AuthState
 import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.VibeAudioPlayer
 import com.vibe.core.ui.VibeTheme
+import com.vibe.feature.album.AlbumScreen
+import com.vibe.feature.artist.ArtistScreen
 import com.vibe.feature.devices.DevicesDialog
 import com.vibe.feature.home.HomeScreen
 import com.vibe.feature.library.LibraryScreen
 import com.vibe.feature.player.FullPlayerScreen
 import com.vibe.feature.player.MiniPlayerBar
+import com.vibe.feature.playlist.PlaylistScreen
 import com.vibe.feature.search.SearchScreen
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -51,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private val audioPlayer: VibeAudioPlayer by inject()
     private val apiService: SpotifyApiService by inject()
     private val connectDeviceManager: ConnectDeviceManager by inject()
+    private val searchManager: DualSearchManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +73,23 @@ class MainActivity : ComponentActivity() {
             var currentScreen by remember { mutableStateOf("home") }
             var isFullPlayerVisible by remember { mutableStateOf(false) }
             var isDevicesDialogVisible by remember { mutableStateOf(false) }
+
+            var activeArtist by remember { mutableStateOf<Artist?>(null) }
+            var activeAlbum by remember { mutableStateOf<Album?>(null) }
+            var activePlaylist by remember { mutableStateOf<Playlist?>(null) }
+            var userPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+            var userLikedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+
+            LaunchedEffect(authState) {
+                if (authState is AuthState.Authenticated) {
+                    apiService.getCurrentUserPlaylists().onSuccess { pls ->
+                        userPlaylists = pls
+                    }
+                    apiService.getLikedSongs(0, 20).onSuccess { tracks ->
+                        userLikedTracks = tracks
+                    }
+                }
+            }
 
             VibeTheme(isAlbumArtTintEnabled = true) {
                 Surface(
@@ -106,26 +132,47 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 onSkipNext = { audioPlayer.skipToNext() },
                                                 onBarClick = { isFullPlayerVisible = true },
-                                                onArtistClick = { /* Navigate to artist page */ }
+                                                onArtistClick = {
+                                                    playbackState.currentTrack?.artists?.firstOrNull()?.id?.let { artistId ->
+                                                        lifecycleScope.launch {
+                                                            apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                        }
+                                                    }
+                                                }
                                             )
                                         }
 
                                         NavigationBar {
                                             NavigationBarItem(
-                                                selected = currentScreen == "home",
-                                                onClick = { currentScreen = "home" },
+                                                selected = currentScreen == "home" && activeArtist == null && activeAlbum == null && activePlaylist == null,
+                                                onClick = {
+                                                    activeArtist = null
+                                                    activeAlbum = null
+                                                    activePlaylist = null
+                                                    currentScreen = "home"
+                                                },
                                                 icon = { Icon(Icons.Default.Home, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) },
                                                 label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home)) }
                                             )
                                             NavigationBarItem(
-                                                selected = currentScreen == "search",
-                                                onClick = { currentScreen = "search" },
+                                                selected = currentScreen == "search" && activeArtist == null && activeAlbum == null && activePlaylist == null,
+                                                onClick = {
+                                                    activeArtist = null
+                                                    activeAlbum = null
+                                                    activePlaylist = null
+                                                    currentScreen = "search"
+                                                },
                                                 icon = { Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) },
                                                 label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search)) }
                                             )
                                             NavigationBarItem(
-                                                selected = currentScreen == "library",
-                                                onClick = { currentScreen = "library" },
+                                                selected = currentScreen == "library" && activeArtist == null && activeAlbum == null && activePlaylist == null,
+                                                onClick = {
+                                                    activeArtist = null
+                                                    activeAlbum = null
+                                                    activePlaylist = null
+                                                    currentScreen = "library"
+                                                },
                                                 icon = { Icon(Icons.Default.LibraryMusic, contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) },
                                                 label = { Text(androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library)) }
                                             )
@@ -134,34 +181,107 @@ class MainActivity : ComponentActivity() {
                                 }
                             ) { innerPadding ->
                                 Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                                    when (currentScreen) {
-                                        "home" -> HomeScreen(
-                                            onPlaylistClick = { playlistId ->
+                                    if (activeArtist != null) {
+                                        ArtistScreen(
+                                            artist = activeArtist!!,
+                                            onTrackClick = { track ->
+                                                audioPlayer.playTrack(track, activeArtist!!.topTracks)
+                                            },
+                                            onAlbumClick = { albumId ->
                                                 lifecycleScope.launch {
-                                                    apiService.getPlaylist(playlistId).onSuccess { p ->
-                                                        if (p.tracks.isNotEmpty()) {
-                                                            audioPlayer.playTrack(p.tracks.first(), p.tracks)
-                                                        }
-                                                    }
+                                                    apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
                                                 }
                                             }
                                         )
-                                        "search" -> SearchScreen(
-                                            onQueryChange = { query ->
-                                                // Trigger search via apiService
+                                        BackHandler { activeArtist = null }
+                                    } else if (activeAlbum != null) {
+                                        AlbumScreen(
+                                            album = activeAlbum!!,
+                                            onTrackClick = { track, index ->
+                                                audioPlayer.playFilteredCollection(activeAlbum!!.tracks, index)
                                             }
                                         )
-                                        "library" -> LibraryScreen(
-                                            onOpenLikedSongs = {
-                                                lifecycleScope.launch {
-                                                    apiService.getLikedSongs(0, 50).onSuccess { tracks ->
-                                                        if (tracks.isNotEmpty()) {
-                                                            audioPlayer.playFilteredCollection(tracks, 0)
+                                        BackHandler { activeAlbum = null }
+                                    } else if (activePlaylist != null) {
+                                        PlaylistScreen(
+                                            playlist = activePlaylist!!,
+                                            onPlayClick = {
+                                                if (activePlaylist!!.tracks.isNotEmpty()) {
+                                                    audioPlayer.playTrack(activePlaylist!!.tracks.first(), activePlaylist!!.tracks)
+                                                }
+                                            },
+                                            onTrackClick = { track, index ->
+                                                audioPlayer.playFilteredCollection(activePlaylist!!.tracks, index)
+                                            }
+                                        )
+                                        BackHandler { activePlaylist = null }
+                                    } else {
+                                        when (currentScreen) {
+                                            "home" -> HomeScreen(
+                                                playlists = userPlaylists,
+                                                recentTracks = userLikedTracks,
+                                                onPlaylistClick = { playlistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlistId).onSuccess { p ->
+                                                            activePlaylist = p
+                                                            if (p.tracks.isNotEmpty()) {
+                                                                audioPlayer.playTrack(p.tracks.first(), p.tracks)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onTrackClick = { track, tracks ->
+                                                    audioPlayer.playTrack(track, tracks)
+                                                }
+                                            )
+                                            "search" -> SearchScreen(
+                                                searchManager = searchManager,
+                                                onTrackClick = { track, contextTracks ->
+                                                    audioPlayer.playTrack(track, contextTracks)
+                                                },
+                                                onArtistClick = { artistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                    }
+                                                },
+                                                onAlbumClick = { albumId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                    }
+                                                },
+                                                onPlaylistClick = { playlistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlistId).onSuccess { activePlaylist = it }
+                                                    }
+                                                }
+                                            )
+                                            "library" -> LibraryScreen(
+                                                playlists = userPlaylists,
+                                                onOpenLikedSongs = {
+                                                    lifecycleScope.launch {
+                                                        apiService.getLikedSongs(0, 50).onSuccess { tracks ->
+                                                            if (tracks.isNotEmpty()) {
+                                                                audioPlayer.playFilteredCollection(tracks, 0)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onPlaylistClick = { playlist ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlist.id).onSuccess { activePlaylist = it }
+                                                    }
+                                                },
+                                                onPlaylistDoubleClick = { playlist ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlist.id).onSuccess { p ->
+                                                            if (p.tracks.isNotEmpty()) {
+                                                                audioPlayer.playTrack(p.tracks.first(), p.tracks)
+                                                            }
                                                         }
                                                     }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }

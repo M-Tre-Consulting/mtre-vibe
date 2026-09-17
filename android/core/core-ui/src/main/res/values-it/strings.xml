@@ -35,6 +35,14 @@
     <string name="search_tab_playlists">Playlist</string>
     <string name="search_tab_podcasts">Podcast</string>
     <string name="search_clear">Cancella</string>
+    <string name="search_top_result">Risultato principale</string>
+    <string name="search_no_results">Nessun risultato trovato per \"%s\"</string>
+    <string name="search_idle_hint">Cerca brani, artisti, album o playlist</string>
+    <string name="search_error">Errore di ricerca: %s</string>
+    <string name="search_badge_song">Brano</string>
+    <string name="search_badge_artist">Artista</string>
+    <string name="search_badge_album">Album</string>
+    <string name="search_badge_playlist">Playlist</string>
 
     <!-- Library -->
     <string name="library_title">La tua libreria</string>

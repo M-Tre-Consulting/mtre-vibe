@@ -49,6 +49,18 @@ data class AlbumSimpleDto(
 )
 
 @Serializable
+data class AlbumDetailDto(
+    val id: String,
+    val name: String,
+    val uri: String,
+    val images: List<ImageDto> = emptyList(),
+    @SerialName("release_date") val releaseDate: String? = null,
+    @SerialName("album_type") val albumType: String? = null,
+    val artists: List<ArtistSimpleDto> = emptyList(),
+    val tracks: PagingResponseDto<TrackDto> = PagingResponseDto()
+)
+
+@Serializable
 data class TrackDto(
     val id: String,
     val uri: String,

@@ -21,7 +21,8 @@ data class Track(
 data class ArtistSummary(
     val id: String,
     val name: String,
-    val uri: String
+    val uri: String,
+    val imageUrl: String? = null
 )
 
 @Serializable

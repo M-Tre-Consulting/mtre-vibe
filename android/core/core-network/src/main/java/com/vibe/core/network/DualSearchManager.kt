@@ -17,6 +17,7 @@ data class SearchResult(
 interface SpotifyApiService {
     suspend fun searchCatalog(query: String): Result<SearchResult>
     suspend fun searchPlaylists(query: String): Result<List<Playlist>>
+    suspend fun getCurrentUserPlaylists(limit: Int = 50, offset: Int = 0): Result<List<Playlist>>
     suspend fun getPlaylist(id: String): Result<Playlist>
     suspend fun getArtist(id: String): Result<Artist>
     suspend fun getAlbum(id: String): Result<Album>

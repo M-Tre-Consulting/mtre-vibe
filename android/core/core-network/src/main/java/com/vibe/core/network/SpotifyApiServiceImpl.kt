@@ -22,7 +22,14 @@ class SpotifyApiServiceImpl(
 
             val body = response.body()
             val tracks = body?.tracks?.items?.map { it.toDomain() } ?: emptyList()
-            val artists = body?.artists?.items?.map { ArtistSummary(id = it.id, name = it.name, uri = it.uri) } ?: emptyList()
+            val artists = body?.artists?.items?.map {
+                ArtistSummary(
+                    id = it.id,
+                    name = it.name,
+                    uri = it.uri,
+                    imageUrl = it.images.firstOrNull()?.url
+                )
+            } ?: emptyList()
             val albums = body?.albums?.items?.map {
                 AlbumSummary(
                     id = it.id,
@@ -61,6 +68,32 @@ class SpotifyApiServiceImpl(
                     description = dto.description,
                     coverImageUrl = dto.images.firstOrNull()?.url,
                     ownerName = dto.owner?.displayName ?: "Spotify",
+                    ownerId = dto.owner?.id ?: "",
+                    isCollaborative = dto.collaborative,
+                    isPublic = dto.public ?: true,
+                    totalTracks = dto.tracks?.total ?: 0,
+                    snapshotId = dto.snapshotId
+                )
+            }
+        }
+    }
+
+    override suspend fun getCurrentUserPlaylists(limit: Int, offset: Int): Result<List<Playlist>> = withContext(ioDispatcher) {
+        runCatching {
+            val response = retrofitApi.getCurrentUserPlaylists(limit = limit, offset = offset)
+            if (!response.isSuccessful) {
+                throw IOException("Get current user playlists error HTTP ${response.code()}")
+            }
+
+            val items = response.body()?.items ?: emptyList()
+            items.map { dto ->
+                Playlist(
+                    id = dto.id,
+                    uri = dto.uri,
+                    name = dto.name,
+                    description = dto.description,
+                    coverImageUrl = dto.images.firstOrNull()?.url,
+                    ownerName = dto.owner?.displayName ?: "User",
                     ownerId = dto.owner?.id ?: "",
                     isCollaborative = dto.collaborative,
                     isPublic = dto.public ?: true,
@@ -138,18 +171,27 @@ class SpotifyApiServiceImpl(
     }
 
     override suspend fun getAlbum(id: String): Result<Album> = withContext(ioDispatcher) {
-        // Will fetch album details and map tracks
         runCatching {
+            val resp = retrofitApi.getAlbum(id)
+            if (!resp.isSuccessful) throw IOException("Get album HTTP ${resp.code()}")
+            val dto = resp.body() ?: throw IOException("Empty album response")
+            val tracks = dto.tracks.items.map { it.toDomain() }
+            val albumType = when {
+                dto.albumType.equals("ep", ignoreCase = true) || (dto.tracks.total in 3..6) -> AlbumType.EP
+                dto.albumType.equals("single", ignoreCase = true) -> AlbumType.SINGLE
+                dto.albumType.equals("compilation", ignoreCase = true) -> AlbumType.COMPILATION
+                else -> AlbumType.ALBUM
+            }
             Album(
-                id = id,
-                uri = "spotify:album:$id",
-                name = "Album",
-                artists = emptyList(),
-                tracks = emptyList(),
-                totalTracks = 0,
-                releaseDate = "",
-                coverImageUrl = null,
-                albumType = AlbumType.ALBUM
+                id = dto.id,
+                uri = dto.uri,
+                name = dto.name,
+                artists = dto.artists.map { ArtistSummary(id = it.id, name = it.name, uri = it.uri) },
+                tracks = tracks,
+                totalTracks = dto.tracks.total,
+                releaseDate = dto.releaseDate ?: "",
+                coverImageUrl = dto.images.firstOrNull()?.url,
+                albumType = albumType
             )
         }
     }

@@ -62,6 +62,11 @@ interface SpotifyRetrofitApi {
         @Query("limit") limit: Int = 50
     ): Response<PagingResponseDto<AlbumSimpleDto>>
 
+    @GET("v1/albums/{id}")
+    suspend fun getAlbum(
+        @Path("id") albumId: String
+    ): Response<AlbumDetailDto>
+
     @GET("v1/me/player/devices")
     suspend fun getAvailableDevices(): Response<DeviceListResponseDto>
 
