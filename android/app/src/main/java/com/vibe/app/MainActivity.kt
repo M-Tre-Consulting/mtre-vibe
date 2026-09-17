@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
-        val data: Uri? = intent?.data ?: return
+        val data = intent?.data ?: return
         val scheme = data.scheme
         val host = data.host
 
