@@ -50,6 +50,16 @@
                     android:scheme="https"
                     android:host="open.spotify.com" />
             </intent-filter>
+            <!-- OAuth PKCE Redirect Handler (vibe://auth/callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="vibe"
+                    android:host="auth"
+                    android:path="/callback" />
+            </intent-filter>
         </activity>
 
         <!-- Media3 Playback Service -->

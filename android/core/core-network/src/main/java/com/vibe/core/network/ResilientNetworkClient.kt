@@ -15,6 +15,7 @@ object ResilientNetworkClient {
 
     fun createClient(
         authInterceptor: Interceptor? = null,
+        authenticator: okhttp3.Authenticator? = null,
         loggingInterceptor: Interceptor? = null
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
@@ -24,6 +25,7 @@ object ResilientNetworkClient {
             .retryOnConnectionFailure(true)
 
         authInterceptor?.let { builder.addInterceptor(it) }
+        authenticator?.let { builder.authenticator(it) }
         loggingInterceptor?.let { builder.addInterceptor(it) }
 
         return builder.build()

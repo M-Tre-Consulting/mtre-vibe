@@ -30,6 +30,7 @@ import java.io.File
 @OptIn(UnstableApi::class)
 class Media3AudioPlayerImpl(
     private val context: Context,
+    private val tokenProvider: (() -> String?)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 ) : VibeAudioPlayer {
 
@@ -42,7 +43,11 @@ class Media3AudioPlayerImpl(
         SimpleCache(audioCacheDir, evictor)
     }
 
-    private val upstreamDataSourceFactory = DefaultDataSource.Factory(context)
+    private val upstreamDataSourceFactory: androidx.media3.datasource.DataSource.Factory =
+        androidx.media3.datasource.DataSource.Factory {
+            SpotifyAudioDataSource(tokenProvider = { tokenProvider?.invoke() })
+        }
+
     private val cacheDataSourceFactory by lazy {
         CacheDataSource.Factory()
             .setCache(audioCache)
