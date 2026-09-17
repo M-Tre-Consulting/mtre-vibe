@@ -108,4 +108,18 @@
     <string name="devices_spotify_connect">Spotify Connect</string>
     <string name="devices_remote_playing">In riproduzione su Spotify Connect</string>
     <string name="devices_close">Chiudi</string>
+
+    <!-- Material 3 Expressive UI additions -->
+    <string name="library_filter_tracks">Brani</string>
+    <string name="library_filter_albums">Album</string>
+    <string name="library_filter_artists">Artisti</string>
+    <string name="library_filter_playlists">Playlist</string>
+    <string name="library_filter_favorites">Preferiti</string>
+    <string name="library_shuffle_all">Casuale</string>
+    <string name="library_no_tracks">Ancora nessun brano</string>
+    <string name="library_no_tracks_desc">Aggiungi musica al tuo account o sincronizza una sorgente per iniziare l\'ascolto.</string>
+    <string name="player_audio_spec_default">44.1 kHz • 320 kbps • MP3</string>
+    <string name="player_shuffle">Riproduzione casuale</string>
+    <string name="player_repeat">Ripeti</string>
+    <string name="player_favorite">Preferito</string>
 </resources>

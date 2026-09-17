@@ -37,6 +37,7 @@ import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.model.Album
 import com.vibe.core.model.Artist
 import com.vibe.core.model.Playlist
+import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
@@ -383,6 +384,15 @@ class MainActivity : ComponentActivity() {
                                             lifecycleScope.launch {
                                                 apiService.getArtist(artistId).onSuccess { activeArtist = it }
                                             }
+                                        },
+                                        onToggleShuffle = { audioPlayer.setShuffle(!playbackState.shuffleEnabled) },
+                                        onToggleRepeat = {
+                                            val next = when (playbackState.repeatMode) {
+                                                RepeatMode.OFF -> RepeatMode.ALL
+                                                RepeatMode.ALL -> RepeatMode.ONE
+                                                RepeatMode.ONE -> RepeatMode.OFF
+                                            }
+                                            audioPlayer.setRepeatMode(next)
                                         }
                                     )
                                 }

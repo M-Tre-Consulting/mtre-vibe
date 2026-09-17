@@ -108,4 +108,18 @@
     <string name="devices_spotify_connect">Spotify Connect</string>
     <string name="devices_remote_playing">Playing on Spotify Connect</string>
     <string name="devices_close">Close</string>
+
+    <!-- Material 3 Expressive UI additions -->
+    <string name="library_filter_tracks">Tracks</string>
+    <string name="library_filter_albums">Albums</string>
+    <string name="library_filter_artists">Artists</string>
+    <string name="library_filter_playlists">Playlists</string>
+    <string name="library_filter_favorites">Favorites</string>
+    <string name="library_shuffle_all">Shuffle</string>
+    <string name="library_no_tracks">No tracks yet</string>
+    <string name="library_no_tracks_desc">Add music to your library or start playing from Search.</string>
+    <string name="player_audio_spec_default">44.1 kHz • 320 kbps • MP3</string>
+    <string name="player_shuffle">Shuffle</string>
+    <string name="player_repeat">Repeat</string>
+    <string name="player_favorite">Favorite</string>
 </resources>
