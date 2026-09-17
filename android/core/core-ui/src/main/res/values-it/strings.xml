@@ -118,6 +118,8 @@
     <string name="library_shuffle_all">Casuale</string>
     <string name="library_no_tracks">Ancora nessun brano</string>
     <string name="library_no_tracks_desc">Aggiungi musica al tuo account o sincronizza una sorgente per iniziare l\'ascolto.</string>
+    <string name="library_no_albums">Nessun album salvato</string>
+    <string name="library_no_albums_desc">Salva album su Spotify per visualizzarli nella tua libreria.</string>
     <string name="player_audio_spec_default">44.1 kHz • 320 kbps • MP3</string>
     <string name="player_shuffle">Riproduzione casuale</string>
     <string name="player_repeat">Ripeti</string>

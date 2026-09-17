@@ -5,8 +5,40 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-import java.util.Properties
+import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
+import java.util.Properties
+import javax.inject.Inject
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
+import org.gradle.process.ExecOperations
+
+abstract class GitValueSource : ValueSource<String, GitValueSource.Parameters> {
+    interface Parameters : ValueSourceParameters {
+        val args: ListProperty<String>
+    }
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    override fun obtain(): String? {
+        val output = ByteArrayOutputStream()
+        return try {
+            val result = execOperations.exec {
+                commandLine(parameters.args.get())
+                standardOutput = output
+                isIgnoreExitValue = true
+            }
+            if (result.exitValue == 0) {
+                output.toString().trim()
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+}
 
 android {
     namespace = "com.vibe.app"
@@ -16,15 +48,31 @@ android {
         applicationId = "com.vibe.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.8.0"
+
+        val overrideCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
+            ?: System.getenv("VERSION_CODE")?.toIntOrNull()
+        val gitCommitCount = providers.of(GitValueSource::class) {
+            parameters.args.set(listOf("git", "rev-list", "--count", "HEAD"))
+        }.orNull?.toIntOrNull() ?: 1
+        versionCode = overrideCode ?: maxOf(1, gitCommitCount)
+
+        val overrideName = project.findProperty("versionName")?.toString()?.trim()
+            ?: System.getenv("VERSION_NAME")?.trim()
+        val gitTag = providers.of(GitValueSource::class) {
+            parameters.args.set(listOf("git", "describe", "--tags", "--exact-match"))
+        }.orNull ?: providers.of(GitValueSource::class) {
+            parameters.args.set(listOf("git", "describe", "--tags", "--abbrev=0"))
+        }.orNull
+        versionName = if (!overrideName.isNullOrEmpty()) overrideName else (gitTag ?: "0.8.0")
 
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
             localProperties.load(FileInputStream(localPropertiesFile))
         }
-        val spotifyClientId = localProperties.getProperty("SPOTIFY_CLIENT_ID", "")
+        val spotifyClientId = project.findProperty("SPOTIFY_CLIENT_ID")?.toString()
+            ?: System.getenv("SPOTIFY_CLIENT_ID")
+            ?: localProperties.getProperty("SPOTIFY_CLIENT_ID", "")
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"$spotifyClientId\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -33,9 +81,24 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = project.findProperty("KEYSTORE_FILE")?.toString() ?: System.getenv("KEYSTORE_FILE")
+            if (keystoreFile != null && file(keystoreFile).exists()) {
+                storeFile = file(keystoreFile)
+                storePassword = project.findProperty("KEYSTORE_PASSWORD")?.toString() ?: System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = project.findProperty("KEY_ALIAS")?.toString() ?: System.getenv("KEY_ALIAS")
+                keyPassword = project.findProperty("KEY_PASSWORD")?.toString() ?: System.getenv("KEY_PASSWORD")
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

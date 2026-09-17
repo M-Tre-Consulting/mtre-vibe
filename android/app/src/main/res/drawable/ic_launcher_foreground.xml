@@ -9,6 +9,20 @@
         android:scaleY="0.68"
         android:pivotX="256"
         android:pivotY="256">
+        <!-- Scalloped Purple Blob -->
+        <path
+            android:fillColor="#FF4F378B"
+            android:strokeColor="#FFEADDFF"
+            android:strokeWidth="4"
+            android:pathData="M256,20 C340,20 360,55 400,75 C460,105 492,150 492,210 C492,260 470,280 470,320 C470,380 440,410 400,435 C360,460 330,492 256,492 C182,492 152,460 112,435 C72,410 42,380 42,320 C42,280 20,260 20,210 C20,150 52,105 112,75 C152,55 172,20 256,20 Z" />
+        <!-- Floating bubble 1 -->
+        <path
+            android:fillColor="#80D0BCFF"
+            android:pathData="M150,120 A30,30 0 1,0 150.01,120 Z" />
+        <!-- Floating bubble 2 -->
+        <path
+            android:fillColor="#809A82DB"
+            android:pathData="M378,344 A22,22 0 1,0 378.01,344 Z" />
         <!-- Soundwave Bar 1 -->
         <path
             android:strokeColor="#FFFFFFFF"

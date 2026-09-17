@@ -18,6 +18,7 @@ data class PlaybackState(
     val isBuffering: Boolean = false,
     val isPaused: Boolean = false,
     val shuffleEnabled: Boolean = false,
+    val isSmartShuffleActive: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val volume: Float = 1.0f,
     val activeDevice: Device? = null,

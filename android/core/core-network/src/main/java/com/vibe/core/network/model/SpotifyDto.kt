@@ -90,7 +90,8 @@ data class PlaylistSimpleDto(
     val collaborative: Boolean = false,
     val public: Boolean? = true,
     @SerialName("snapshot_id") val snapshotId: String? = null,
-    val tracks: PlaylistTracksRefDto? = null
+    val tracks: PlaylistTracksRefDto? = null,
+    val items: PlaylistTracksRefDto? = null
 )
 
 @Serializable
@@ -102,7 +103,8 @@ data class PlaylistTracksRefDto(
 @Serializable
 data class PlaylistTrackItemDto(
     @SerialName("added_at") val addedAt: String? = null,
-    val track: TrackDto? = null
+    val track: TrackDto? = null,
+    val item: TrackDto? = null
 )
 
 @Serializable
@@ -116,7 +118,19 @@ data class PlaylistDetailDto(
     val collaborative: Boolean = false,
     val public: Boolean? = true,
     @SerialName("snapshot_id") val snapshotId: String? = null,
-    val tracks: PagingResponseDto<PlaylistTrackItemDto> = PagingResponseDto()
+    val tracks: PagingResponseDto<PlaylistTrackItemDto>? = null,
+    val items: PagingResponseDto<PlaylistTrackItemDto>? = null
+)
+
+@Serializable
+data class SavedAlbumItemDto(
+    @SerialName("added_at") val addedAt: String? = null,
+    val album: AlbumDetailDto
+)
+
+@Serializable
+data class FollowedArtistsDto(
+    val artists: PagingResponseDto<ArtistFullDto> = PagingResponseDto()
 )
 
 @Serializable

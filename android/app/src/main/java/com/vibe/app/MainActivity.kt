@@ -35,6 +35,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.model.Album
+import com.vibe.core.model.AlbumSummary
 import com.vibe.core.model.Artist
 import com.vibe.core.model.Playlist
 import com.vibe.core.model.RepeatMode
@@ -93,14 +94,18 @@ class MainActivity : ComponentActivity() {
             var activePlaylist by remember { mutableStateOf<Playlist?>(null) }
             var userPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
             var userLikedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+            var userSavedAlbums by remember { mutableStateOf<List<AlbumSummary>>(emptyList()) }
 
             LaunchedEffect(authState) {
                 if (authState is AuthState.Authenticated) {
                     apiService.getCurrentUserPlaylists().onSuccess { pls ->
                         userPlaylists = pls
                     }
-                    apiService.getLikedSongs(0, 20).onSuccess { tracks ->
+                    apiService.getLikedSongs(0, 50).onSuccess { tracks ->
                         userLikedTracks = tracks
+                    }
+                    apiService.getUserSavedAlbums(50, 0).onSuccess { albums ->
+                        userSavedAlbums = albums
                     }
                 }
             }
@@ -266,7 +271,37 @@ class MainActivity : ComponentActivity() {
                                                      SwipeBackContainer(onBack = { activeAlbum = null }) {
                                                          AlbumScreen(
                                                              album = album,
+                                                             isPlaying = playbackState.isPlaying && album.tracks.any { it.id == playbackState.currentTrack?.id },
+                                                             isShuffleActive = playbackState.shuffleEnabled,
+                                                             isSmartShuffleActive = playbackState.isSmartShuffleActive,
+                                                             repeatMode = playbackState.repeatMode,
                                                              onBack = { activeAlbum = null },
+                                                             onPlayClick = {
+                                                                 if (playbackState.isPlaying) {
+                                                                     audioPlayer.pause()
+                                                                 } else if (album.tracks.isNotEmpty()) {
+                                                                     if (playbackState.currentTrack != null && album.tracks.any { it.id == playbackState.currentTrack?.id }) {
+                                                                         audioPlayer.resume()
+                                                                     } else {
+                                                                         playLocalCollection(album.tracks, 0)
+                                                                     }
+                                                                 }
+                                                             },
+                                                             onShuffleClick = {
+                                                                 audioPlayer.toggleShuffle()
+                                                                 if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
+                                                                     playLocalCollection(album.tracks, 0)
+                                                                 }
+                                                             },
+                                                             onSmartShuffleClick = {
+                                                                 audioPlayer.toggleSmartShuffle()
+                                                                 if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
+                                                                     playLocalCollection(album.tracks, 0)
+                                                                 }
+                                                             },
+                                                             onRepeatClick = {
+                                                                 audioPlayer.toggleRepeat()
+                                                             },
                                                              onTrackClick = { track, index ->
                                                                  playLocalCollection(album.tracks, index)
                                                              }
@@ -280,11 +315,36 @@ class MainActivity : ComponentActivity() {
                                                      SwipeBackContainer(onBack = { activePlaylist = null }) {
                                                          PlaylistScreen(
                                                              playlist = playlist,
+                                                             isPlaying = playbackState.isPlaying && playlist.tracks.any { it.id == playbackState.currentTrack?.id },
+                                                             isShuffleActive = playbackState.shuffleEnabled,
+                                                             isSmartShuffleActive = playbackState.isSmartShuffleActive,
+                                                             repeatMode = playbackState.repeatMode,
                                                              onBack = { activePlaylist = null },
                                                              onPlayClick = {
-                                                                 if (playlist.tracks.isNotEmpty()) {
-                                                                     playLocalTrack(playlist.tracks.first(), playlist.tracks)
+                                                                 if (playbackState.isPlaying) {
+                                                                     audioPlayer.pause()
+                                                                 } else if (playlist.tracks.isNotEmpty()) {
+                                                                     if (playbackState.currentTrack != null && playlist.tracks.any { it.id == playbackState.currentTrack?.id }) {
+                                                                         audioPlayer.resume()
+                                                                     } else {
+                                                                         playLocalCollection(playlist.tracks, 0)
+                                                                     }
                                                                  }
+                                                             },
+                                                             onShuffleClick = {
+                                                                 audioPlayer.toggleShuffle()
+                                                                 if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
+                                                                     playLocalCollection(playlist.tracks, 0)
+                                                                 }
+                                                             },
+                                                             onSmartShuffleClick = {
+                                                                 audioPlayer.toggleSmartShuffle()
+                                                                 if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
+                                                                     playLocalCollection(playlist.tracks, 0)
+                                                                 }
+                                                             },
+                                                             onRepeatClick = {
+                                                                 audioPlayer.toggleRepeat()
                                                              },
                                                              onTrackClick = { track, index ->
                                                                  playLocalCollection(playlist.tracks, index)
@@ -331,14 +391,21 @@ class MainActivity : ComponentActivity() {
                                              )
                                              "library" -> LibraryScreen(
                                                  playlists = userPlaylists,
+                                                 albums = userSavedAlbums,
+                                                 likedTracks = userLikedTracks,
                                                  onOpenLikedSongs = {
-                                                     lifecycleScope.launch {
-                                                         apiService.getLikedSongs(0, 50).onSuccess { tracks ->
-                                                             if (tracks.isNotEmpty()) {
-                                                                 playLocalCollection(tracks, 0)
-                                                             }
-                                                         }
-                                                     }
+                                                     activePlaylist = Playlist(
+                                                         id = "liked_songs",
+                                                         uri = "spotify:user:liked",
+                                                         name = "Brani che ti piacciono",
+                                                         description = "I brani salvati nella tua libreria",
+                                                         ownerName = "Tu",
+                                                         ownerId = "me",
+                                                         tracks = userLikedTracks,
+                                                         totalTracks = userLikedTracks.size,
+                                                         isPinned = true,
+                                                         coverImageUrl = null
+                                                     )
                                                  },
                                                  onPlaylistClick = { playlist ->
                                                      lifecycleScope.launch {
@@ -350,6 +417,29 @@ class MainActivity : ComponentActivity() {
                                                          apiService.getPlaylist(playlist.id).onSuccess { p ->
                                                              if (p.tracks.isNotEmpty()) {
                                                                  playLocalTrack(p.tracks.first(), p.tracks)
+                                                             }
+                                                         }
+                                                     }
+                                                 },
+                                                 onAlbumClick = { albumId ->
+                                                     lifecycleScope.launch {
+                                                         apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                     }
+                                                 },
+                                                 onTrackClick = { track, tracks ->
+                                                     playLocalTrack(track, tracks)
+                                                 },
+                                                 onShuffleAll = {
+                                                     if (userLikedTracks.isNotEmpty()) {
+                                                         audioPlayer.setShuffle(true)
+                                                         playLocalCollection(userLikedTracks, 0)
+                                                     } else if (userPlaylists.isNotEmpty()) {
+                                                         lifecycleScope.launch {
+                                                             apiService.getPlaylist(userPlaylists.random().id).onSuccess { p ->
+                                                                 if (p.tracks.isNotEmpty()) {
+                                                                     audioPlayer.setShuffle(true)
+                                                                     playLocalCollection(p.tracks, 0)
+                                                                 }
                                                              }
                                                          }
                                                      }

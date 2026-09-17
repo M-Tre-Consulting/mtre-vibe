@@ -21,6 +21,7 @@ interface SpotifyApiService {
     suspend fun getPlaylist(id: String): Result<Playlist>
     suspend fun getArtist(id: String): Result<Artist>
     suspend fun getAlbum(id: String): Result<Album>
+    suspend fun getUserSavedAlbums(limit: Int = 50, offset: Int = 0): Result<List<AlbumSummary>>
     suspend fun getLikedSongs(offset: Int, limit: Int): Result<List<Track>>
     suspend fun setLiked(trackId: String, isLiked: Boolean): Result<Unit>
     suspend fun getLyrics(trackId: String): Result<Lyrics?>

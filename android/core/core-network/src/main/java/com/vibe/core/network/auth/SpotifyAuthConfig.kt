@@ -21,6 +21,7 @@ object SpotifyAuthConfig {
         "user-library-read",
         "user-library-modify",
         "user-top-read",
-        "user-read-recently-played"
+        "user-read-recently-played",
+        "user-follow-read"
     )
 }

@@ -36,7 +36,11 @@ interface VibeAudioPlayer {
     fun skipToPrevious()
 
     fun setShuffle(enabled: Boolean)
+    fun toggleShuffle()
+    fun setSmartShuffle(enabled: Boolean)
+    fun toggleSmartShuffle()
     fun setRepeatMode(mode: RepeatMode)
+    fun toggleRepeat()
     fun setVolume(volume: Float)
 
     /**

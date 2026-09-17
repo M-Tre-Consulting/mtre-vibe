@@ -323,11 +323,23 @@ class Media3AudioPlayerImpl(
 
     override fun skipToNext() {
         if (currentPlaylist.isEmpty()) return
-        val nextIndex = currentTrackIndex + 1
+        val state = _playbackState.value
+        val nextIndex = if (state.shuffleEnabled || state.isSmartShuffleActive) {
+            if (currentPlaylist.size > 1) {
+                var rand = (0 until currentPlaylist.size).random()
+                while (rand == currentTrackIndex && currentPlaylist.size > 1) {
+                    rand = (0 until currentPlaylist.size).random()
+                }
+                rand
+            } else 0
+        } else {
+            currentTrackIndex + 1
+        }
+
         if (nextIndex < currentPlaylist.size) {
             currentTrackIndex = nextIndex
             playTrackInternal(currentPlaylist[nextIndex])
-        } else if (_playbackState.value.repeatMode == RepeatMode.ALL) {
+        } else if (state.repeatMode == RepeatMode.ALL) {
             currentTrackIndex = 0
             playTrackInternal(currentPlaylist[0])
         }
@@ -352,7 +364,29 @@ class Media3AudioPlayerImpl(
 
     override fun setShuffle(enabled: Boolean) {
         exoPlayer.shuffleModeEnabled = enabled
-        _playbackState.update { it.copy(shuffleEnabled = enabled) }
+        _playbackState.update { 
+            it.copy(
+                shuffleEnabled = enabled,
+                isSmartShuffleActive = if (enabled) false else it.isSmartShuffleActive
+            ) 
+        }
+    }
+
+    override fun toggleShuffle() {
+        setShuffle(!_playbackState.value.shuffleEnabled)
+    }
+
+    override fun setSmartShuffle(enabled: Boolean) {
+        _playbackState.update { 
+            it.copy(
+                isSmartShuffleActive = enabled,
+                shuffleEnabled = if (enabled) false else it.shuffleEnabled
+            ) 
+        }
+    }
+
+    override fun toggleSmartShuffle() {
+        setSmartShuffle(!_playbackState.value.isSmartShuffleActive)
     }
 
     override fun setRepeatMode(mode: RepeatMode) {
@@ -362,6 +396,15 @@ class Media3AudioPlayerImpl(
             RepeatMode.ONE -> Player.REPEAT_MODE_ONE
         }
         _playbackState.update { it.copy(repeatMode = mode) }
+    }
+
+    override fun toggleRepeat() {
+        val nextMode = when (_playbackState.value.repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        setRepeatMode(nextMode)
     }
 
     override fun setVolume(volume: Float) {

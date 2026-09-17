@@ -118,6 +118,8 @@
     <string name="library_shuffle_all">Shuffle</string>
     <string name="library_no_tracks">No tracks yet</string>
     <string name="library_no_tracks_desc">Add music to your library or start playing from Search.</string>
+    <string name="library_no_albums">No saved albums</string>
+    <string name="library_no_albums_desc">Save albums on Spotify to see them in your library.</string>
     <string name="player_audio_spec_default">44.1 kHz • 320 kbps • MP3</string>
     <string name="player_shuffle">Shuffle</string>
     <string name="player_repeat">Repeat</string>
