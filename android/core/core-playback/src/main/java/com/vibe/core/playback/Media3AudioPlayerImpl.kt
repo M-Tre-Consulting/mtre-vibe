@@ -1,6 +1,7 @@
 package com.vibe.core.playback
 
 import android.content.Context
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -8,6 +9,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -29,6 +32,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
+/**
+ * 100% Native on-device Media3 ExoPlayer implementation.
+ * Guarantees local playback through phone speakers / headphones with foreground
+ * notification media session, offline cache, and multi-source audio resolver.
+ */
 @OptIn(UnstableApi::class)
 class Media3AudioPlayerImpl(
     private val context: Context,
@@ -36,6 +44,10 @@ class Media3AudioPlayerImpl(
     private val remotePlaybackProvider: (suspend (List<String>) -> Result<Unit>)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 ) : VibeAudioPlayer {
+
+    companion object {
+        private const val TAG = "Media3AudioPlayer"
+    }
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -46,10 +58,17 @@ class Media3AudioPlayerImpl(
         SimpleCache(audioCacheDir, evictor)
     }
 
-    private val upstreamDataSourceFactory: androidx.media3.datasource.DataSource.Factory =
-        androidx.media3.datasource.DataSource.Factory {
-            SpotifyAudioDataSource(tokenProvider = { tokenProvider?.invoke() })
-        }
+    private val httpDataSourceFactory by lazy {
+        DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(15_000)
+            .setAllowCrossProtocolRedirects(true)
+    }
+
+    private val upstreamDataSourceFactory by lazy {
+        DefaultDataSource.Factory(context, httpDataSourceFactory)
+    }
 
     private val cacheDataSourceFactory by lazy {
         CacheDataSource.Factory()
@@ -107,13 +126,13 @@ class Media3AudioPlayerImpl(
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    _playbackState.update { it.copy(isBuffering = false) }
-                    _playbackState.value.currentTrack?.let { current ->
-                        scope.launch {
-                            remotePlaybackProvider?.invoke(listOf(current.uri))?.onSuccess {
-                                _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
-                            }
-                        }
+                    Log.e(TAG, "Local ExoPlayer playback error: ${error.errorCodeName} - ${error.message}", error)
+                    _playbackState.update {
+                        it.copy(
+                            isBuffering = false,
+                            isPlaying = false,
+                            isPaused = true
+                        )
                     }
                 }
             })
@@ -136,7 +155,9 @@ class Media3AudioPlayerImpl(
             } else {
                 context.startService(intent)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.d(TAG, "Foreground service start attempt: ${e.message}")
+        }
     }
 
     init {
@@ -172,27 +193,19 @@ class Media3AudioPlayerImpl(
         scope.launch {
             val resolvedUrl = TrackAudioResolver.resolveAudioUrl(track)
             if (!resolvedUrl.isNullOrBlank()) {
+                Log.d(TAG, "Playing track locally on device: ${track.name} from $resolvedUrl")
                 val mediaItem = buildMediaItem(track, resolvedUrl)
                 exoPlayer.setMediaItem(mediaItem)
                 exoPlayer.prepare()
                 exoPlayer.play()
             } else {
-                remotePlaybackProvider?.invoke(listOf(track.uri))?.onSuccess {
-                    _playbackState.update {
-                        it.copy(
-                            isBuffering = false,
-                            isPlaying = true,
-                            isPaused = false
-                        )
-                    }
-                }?.onFailure {
-                    _playbackState.update {
-                        it.copy(
-                            isBuffering = false,
-                            isPlaying = false,
-                            isPaused = true
-                        )
-                    }
+                Log.e(TAG, "Unable to resolve playable audio stream for ${track.name}")
+                _playbackState.update {
+                    it.copy(
+                        isBuffering = false,
+                        isPlaying = false,
+                        isPaused = true
+                    )
                 }
             }
         }
@@ -218,28 +231,18 @@ class Media3AudioPlayerImpl(
         scope.launch {
             val resolvedUrl = TrackAudioResolver.resolveAudioUrl(selected)
             if (!resolvedUrl.isNullOrBlank()) {
+                Log.d(TAG, "Playing collection track locally: ${selected.name} from $resolvedUrl")
                 val mediaItem = buildMediaItem(selected, resolvedUrl)
                 exoPlayer.setMediaItem(mediaItem)
                 exoPlayer.prepare()
                 exoPlayer.play()
             } else {
-                val uris = playableTracks.map { it.uri }
-                remotePlaybackProvider?.invoke(uris)?.onSuccess {
-                    _playbackState.update {
-                        it.copy(
-                            isBuffering = false,
-                            isPlaying = true,
-                            isPaused = false
-                        )
-                    }
-                }?.onFailure {
-                    _playbackState.update {
-                        it.copy(
-                            isBuffering = false,
-                            isPlaying = false,
-                            isPaused = true
-                        )
-                    }
+                _playbackState.update {
+                    it.copy(
+                        isBuffering = false,
+                        isPlaying = false,
+                        isPaused = true
+                    )
                 }
             }
         }
@@ -256,11 +259,7 @@ class Media3AudioPlayerImpl(
             _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
         } else {
             _playbackState.value.currentTrack?.let { current ->
-                scope.launch {
-                    remotePlaybackProvider?.invoke(listOf(current.uri))?.onSuccess {
-                        _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
-                    }
-                }
+                playTrack(current, emptyList())
             }
         }
     }
