@@ -8,12 +8,16 @@ import android.util.Log
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.vibe.core.playback.Media3AudioPlayerImpl
+import com.vibe.core.playback.RoutingAudioPlayerImpl
 import com.vibe.core.playback.VibeAudioPlayer
 import org.koin.android.ext.android.inject
 
 class VibeMediaSessionService : MediaSessionService() {
 
     private val audioPlayer: VibeAudioPlayer by inject()
+
+    private val activeMediaSession: MediaSession?
+        get() = (audioPlayer as? RoutingAudioPlayerImpl)?.mediaSession ?: (audioPlayer as? Media3AudioPlayerImpl)?.mediaSession
 
     companion object {
         private const val TAG = "VibeMediaSessionService"
@@ -45,7 +49,7 @@ class VibeMediaSessionService : MediaSessionService() {
 
     private fun attachSession() {
         try {
-            val session = (audioPlayer as? Media3AudioPlayerImpl)?.mediaSession
+            val session = activeMediaSession
             if (session != null && !isSessionAdded(session)) {
                 addSession(session)
                 Log.d(TAG, "MediaSession successfully attached to VibeMediaSessionService")
@@ -57,7 +61,7 @@ class VibeMediaSessionService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         attachSession()
-        return (audioPlayer as? Media3AudioPlayerImpl)?.mediaSession
+        return activeMediaSession
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -66,7 +70,7 @@ class VibeMediaSessionService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = (audioPlayer as? Media3AudioPlayerImpl)?.mediaSession?.player
+        val player = activeMediaSession?.player
         if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
             stopSelf()
         }
@@ -74,7 +78,7 @@ class VibeMediaSessionService : MediaSessionService() {
 
     override fun onDestroy() {
         try {
-            val session = (audioPlayer as? Media3AudioPlayerImpl)?.mediaSession
+            val session = activeMediaSession
             if (session != null && isSessionAdded(session)) {
                 removeSession(session)
             }

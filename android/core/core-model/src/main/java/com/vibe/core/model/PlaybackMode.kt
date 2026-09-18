@@ -4,9 +4,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class PlaybackMode {
-    STANDALONE,   // Spotube-style: Native ExoPlayer with full-track audio resolver (Works Free & Premium)
-    CONNECT,      // Spotify Connect: Controls playback on external active Spotify devices
-    LIBRESPOT     // Integrated Librespot Connect Receiver (Experimental, requires Spotify Premium)
+    SPOTIFY_REMOTE, // Official Spotify App Remote: IPC direct playback (100% full tracks, 320 kbps Vorbis)
+    STANDALONE,     // Spotube-style: Native ExoPlayer with multi-source resolver
+    CONNECT         // Spotify Connect: Controls playback on external active Spotify devices
 }
 
 @Serializable
@@ -16,8 +16,7 @@ enum class AudioQuality {
 }
 
 data class VibeSettings(
-    val playbackMode: PlaybackMode = PlaybackMode.STANDALONE,
+    val playbackMode: PlaybackMode = PlaybackMode.SPOTIFY_REMOTE,
     val autoFallbackEnabled: Boolean = true,
-    val audioQuality: AudioQuality = AudioQuality.HIGH,
-    val isLibrespotEnabled: Boolean = false
+    val audioQuality: AudioQuality = AudioQuality.HIGH
 )

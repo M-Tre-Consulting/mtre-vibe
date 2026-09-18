@@ -449,4 +449,84 @@ class SpotifyApiServiceImpl(
             }
         }
     }
+
+    override suspend fun getPlaybackState(): Result<PlaybackState?> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.getPlaybackState()
+            if (resp.code() == 204 || !resp.isSuccessful) {
+                return@runCatching null
+            }
+            val dto = resp.body() ?: return@runCatching null
+            val track = dto.item?.toDomain()
+            val repeatMode = when (dto.repeatState) {
+                "track" -> RepeatMode.ONE
+                "context" -> RepeatMode.ALL
+                else -> RepeatMode.OFF
+            }
+            PlaybackState(
+                currentTrack = track,
+                positionMs = dto.progressMs ?: 0L,
+                durationMs = dto.item?.durationMs ?: 0L,
+                isPlaying = dto.isPlaying,
+                isPaused = !dto.isPlaying,
+                shuffleEnabled = dto.shuffleState,
+                repeatMode = repeatMode,
+                activeDevice = dto.device?.toDomain()
+            )
+        }
+    }
+
+    override suspend fun skipToNext(deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.skipToNext(deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Skip next error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun skipToPrevious(deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.skipToPrevious(deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Skip previous error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun seekToPosition(positionMs: Long, deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.seek(positionMs = positionMs, deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Seek error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun setShuffle(enabled: Boolean, deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.setShuffle(state = enabled, deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Shuffle error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun setRepeat(repeatMode: String, deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.setRepeat(state = repeatMode, deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Repeat error HTTP ${resp.code()}")
+            }
+        }
+    }
+
+    override suspend fun setVolume(volumePercent: Int, deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.setVolume(volumePercent = volumePercent, deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Volume error HTTP ${resp.code()}")
+            }
+        }
+    }
 }

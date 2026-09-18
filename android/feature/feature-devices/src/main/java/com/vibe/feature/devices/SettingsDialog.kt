@@ -112,39 +112,39 @@ fun SettingsDialog(
                         fontWeight = FontWeight.Bold
                     )
 
-                    // 1. Standalone / Spotube mode
+                    // 1. Spotify App Remote (Official IPC)
                     PlaybackModeCard(
-                        title = "Standalone (Stile Spotube)",
-                        subtitle = "Riproduce tracce complete in locale su questo dispositivo con ExoPlayer e cache. Supporta account Free e Premium.",
+                        title = "Spotify App Remote (IPC)",
+                        subtitle = "Connessione diretta all'app Spotify sul telefono via IPC. 100% brani completi, Vorbis 320 kbps senza interruzioni. Comandi integrati in Vibe.",
                         badgeText = "Consigliata",
                         icon = Icons.Default.PhoneAndroid,
+                        isSelected = settings.playbackMode == PlaybackMode.SPOTIFY_REMOTE,
+                        onClick = {
+                            onUpdateSettings(settings.copy(playbackMode = PlaybackMode.SPOTIFY_REMOTE))
+                        }
+                    )
+
+                    // 2. Standalone (ExoPlayer)
+                    PlaybackModeCard(
+                        title = "Standalone (ExoPlayer)",
+                        subtitle = "Player nativo ExoPlayer con cache locale. Utile se l'app Spotify non è installata o per estrazione indipendente.",
+                        badgeText = "Alternativa",
+                        icon = Icons.Default.MusicNote,
                         isSelected = settings.playbackMode == PlaybackMode.STANDALONE,
                         onClick = {
                             onUpdateSettings(settings.copy(playbackMode = PlaybackMode.STANDALONE))
                         }
                     )
 
-                    // 2. Spotify Connect
+                    // 3. Spotify Connect
                     PlaybackModeCard(
                         title = "Spotify Connect",
                         subtitle = "Invia la musica direttamente ai tuoi dispositivi Spotify attivi (PC, Smart TV, altoparlanti).",
-                        badgeText = "Ufficiale",
+                        badgeText = "Remoto",
                         icon = Icons.Default.Speaker,
                         isSelected = settings.playbackMode == PlaybackMode.CONNECT,
                         onClick = {
                             onUpdateSettings(settings.copy(playbackMode = PlaybackMode.CONNECT))
-                        }
-                    )
-
-                    // 3. Librespot Spirc Receiver
-                    PlaybackModeCard(
-                        title = "Ricevitore Librespot",
-                        subtitle = "Funge da ricevitore Connect integrato nel telefono. Richiede Spotify Premium. Se fallisce, puoi disattivarlo.",
-                        badgeText = "Sperimentale",
-                        icon = Icons.Default.Radio,
-                        isSelected = settings.playbackMode == PlaybackMode.LIBRESPOT,
-                        onClick = {
-                            onUpdateSettings(settings.copy(playbackMode = PlaybackMode.LIBRESPOT))
                         }
                     )
 
@@ -178,7 +178,7 @@ fun SettingsDialog(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Se Librespot o Connect non rispondono o falliscono, passa subito alla modalità locale Standalone.",
+                                    text = "Se il motore selezionato non risponde o fallisce, passa subito al player alternativo.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -188,41 +188,6 @@ fun SettingsDialog(
                                 checked = settings.autoFallbackEnabled,
                                 onCheckedChange = { enabled ->
                                     onUpdateSettings(settings.copy(autoFallbackEnabled = enabled))
-                                }
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Ricevitore Librespot attivo",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Mantiene attivo il target Connect 'Vibe on Android'. Disattiva se noti problemi di rete.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Switch(
-                                checked = settings.isLibrespotEnabled,
-                                onCheckedChange = { enabled ->
-                                    onUpdateSettings(settings.copy(isLibrespotEnabled = enabled))
                                 }
                             )
                         }

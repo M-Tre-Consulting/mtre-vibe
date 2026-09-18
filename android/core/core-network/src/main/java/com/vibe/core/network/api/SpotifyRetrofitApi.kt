@@ -119,4 +119,19 @@ interface SpotifyRetrofitApi {
         @Query("uri") uri: String,
         @Query("device_id") deviceId: String? = null
     ): Response<Unit>
+
+    @GET("v1/me/player")
+    suspend fun getPlaybackState(): Response<PlaybackResponseDto>
+
+    @PUT("v1/me/player/shuffle")
+    suspend fun setShuffle(
+        @Query("state") state: Boolean,
+        @Query("device_id") deviceId: String? = null
+    ): Response<Unit>
+
+    @PUT("v1/me/player/repeat")
+    suspend fun setRepeat(
+        @Query("state") state: String,
+        @Query("device_id") deviceId: String? = null
+    ): Response<Unit>
 }

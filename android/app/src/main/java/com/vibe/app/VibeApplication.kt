@@ -7,7 +7,10 @@ import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.SpotifyClientFactory
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.Media3AudioPlayerImpl
+import com.vibe.core.playback.RoutingAudioPlayerImpl
 import com.vibe.core.playback.SettingsManager
+import com.vibe.core.playback.SpotifyAppRemoteManager
+import com.vibe.core.playback.SpotifyConnectPlayerImpl
 import com.vibe.core.playback.VibeAudioPlayer
 import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.koin.androidContext
@@ -32,7 +35,15 @@ val appModule = module {
         SpotifyClientFactory.createSpotifyApiService(authManager, enableLogging = true)
     }
 
-    single<VibeAudioPlayer> {
+    single {
+        val authManager: SpotifyAuthManager = get()
+        SpotifyAppRemoteManager(
+            context = get(),
+            clientIdProvider = { authManager.getEffectiveClientId() }
+        )
+    }
+
+    single {
         val authManager: SpotifyAuthManager = get()
         val apiService: SpotifyApiService = get()
         Media3AudioPlayerImpl(
@@ -41,6 +52,22 @@ val appModule = module {
             remotePlaybackProvider = { uris ->
                 apiService.startPlayback(uris = uris)
             }
+        )
+    }
+
+    single {
+        SpotifyConnectPlayerImpl(
+            apiService = get()
+        )
+    }
+
+    single<VibeAudioPlayer> {
+        RoutingAudioPlayerImpl(
+            context = get(),
+            exoPlayer = get(),
+            spotifyRemote = get(),
+            spotifyConnect = get(),
+            settingsManager = get()
         )
     }
 

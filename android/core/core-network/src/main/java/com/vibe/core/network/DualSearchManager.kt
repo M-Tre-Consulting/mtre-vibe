@@ -30,6 +30,13 @@ interface SpotifyApiService {
     suspend fun startPlayback(uris: List<String>? = null, contextUri: String? = null, deviceId: String? = null): Result<Unit>
     suspend fun pausePlayback(deviceId: String? = null): Result<Unit>
     suspend fun resumePlayback(deviceId: String? = null): Result<Unit>
+    suspend fun getPlaybackState(): Result<PlaybackState?>
+    suspend fun skipToNext(deviceId: String? = null): Result<Unit>
+    suspend fun skipToPrevious(deviceId: String? = null): Result<Unit>
+    suspend fun seekToPosition(positionMs: Long, deviceId: String? = null): Result<Unit>
+    suspend fun setShuffle(enabled: Boolean, deviceId: String? = null): Result<Unit>
+    suspend fun setRepeat(repeatMode: String, deviceId: String? = null): Result<Unit>
+    suspend fun setVolume(volumePercent: Int, deviceId: String? = null): Result<Unit>
 }
 
 /**

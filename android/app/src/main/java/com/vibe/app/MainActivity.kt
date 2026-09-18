@@ -47,7 +47,9 @@ import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.model.PlaybackMode
 import com.vibe.core.model.VibeSettings
+import com.vibe.core.playback.RoutingAudioPlayerImpl
 import com.vibe.core.playback.SettingsManager
+import com.vibe.core.playback.SpotifyAppRemoteManager
 import com.vibe.core.playback.VibeAudioPlayer
 import com.vibe.core.ui.ExpressiveNavItem
 import com.vibe.core.ui.ExpressivePillNavBar
@@ -72,6 +74,7 @@ class MainActivity : ComponentActivity() {
 
     private val authManager: SpotifyAuthManager by inject()
     private val audioPlayer: VibeAudioPlayer by inject()
+    private val spotifyAppRemoteManager: SpotifyAppRemoteManager by inject()
     private val apiService: SpotifyApiService by inject()
     private val connectDeviceManager: ConnectDeviceManager by inject()
     private val searchManager: DualSearchManager by inject()
@@ -528,22 +531,27 @@ class MainActivity : ComponentActivity() {
                                     devices = devices,
                                     isLocalPlaybackActive = !anyRemoteActive,
                                     onSelectLocalPlayback = {
-                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to STANDALONE")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to SPOTIFY_REMOTE")
                                         lifecycleScope.launch {
-                                            settingsManager.setPlaybackMode(PlaybackMode.STANDALONE)
+                                            settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote()
                                             audioPlayer.resume()
                                             isDevicesDialogVisible = false
                                         }
                                     },
                                     onSelectDevice = { dev ->
-                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id})")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
                                         lifecycleScope.launch {
-                                            audioPlayer.pause()
-                                            val res = apiService.transferPlayback(dev.id, play = true)
-                                            if (res.isSuccess) {
-                                                android.util.Log.i("VIBE_CONNECT", "Transfer playback to '${dev.name}' successful!")
+                                            settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id)
+                                            val currentTrack = playbackState.currentTrack
+                                            if (playbackState.isPlaying && currentTrack != null) {
+                                                val res = apiService.startPlayback(uris = listOf(currentTrack.uri), deviceId = dev.id)
+                                                if (res.isFailure) {
+                                                    apiService.transferPlayback(dev.id, play = true)
+                                                }
                                             } else {
-                                                android.util.Log.e("VIBE_CONNECT", "Transfer playback to '${dev.name}' failed: ${res.exceptionOrNull()?.message}")
+                                                apiService.transferPlayback(dev.id, play = false)
                                             }
                                             isDevicesDialogVisible = false
                                         }
@@ -561,25 +569,20 @@ class MainActivity : ComponentActivity() {
                                 SettingsDialog(
                                     settings = vibeSettings,
                                     onUpdateSettings = { updated ->
-                                        android.util.Log.i("VIBE_SETTINGS", "Settings updated -> Mode: ${updated.playbackMode}, Fallback: ${updated.autoFallbackEnabled}, Librespot: ${updated.isLibrespotEnabled}, Quality: ${updated.audioQuality}")
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(updated.playbackMode)
                                             settingsManager.setAutoFallback(updated.autoFallbackEnabled)
                                             settingsManager.setAudioQuality(updated.audioQuality)
-                                            settingsManager.setLibrespotEnabled(updated.isLibrespotEnabled)
                                         }
                                     },
                                     onClearCache = {
-                                        android.util.Log.i("VIBE_SETTINGS", "Cache clear requested by user")
-                                        lifecycleScope.launch(Dispatchers.IO) {
+                                        lifecycleScope.launch {
                                             val cacheDir = java.io.File(cacheDir, "vibe_audio_cache")
                                             cacheDir.deleteRecursively()
-                                            cacheDir.mkdirs()
+                                            Toast.makeText(this@MainActivity, "Cache svuotata", Toast.LENGTH_SHORT).show()
                                         }
-                                        Toast.makeText(this@MainActivity, "Cache audio svuotata!", Toast.LENGTH_SHORT).show()
                                     },
                                     onLogout = {
-                                        android.util.Log.i("VIBE_SETTINGS", "Logout requested by user")
                                         lifecycleScope.launch {
                                             authManager.logout()
                                             isSettingsDialogVisible = false
@@ -598,38 +601,8 @@ class MainActivity : ComponentActivity() {
     private fun playLocalTrack(track: Track, contextTracks: List<Track> = emptyList()) {
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
-            android.util.Log.i("VIBE_PLAYBACK", ">>> Play Track Clicked: '${track.name}' by '${track.artists.firstOrNull()?.name}' (URI: ${track.uri})")
-            android.util.Log.i("VIBE_PLAYBACK", "    Active Settings -> Mode: ${settings.playbackMode} | AutoFallback: ${settings.autoFallbackEnabled} | LibrespotActive: ${settings.isLibrespotEnabled}")
-
-            if (settings.playbackMode == PlaybackMode.CONNECT) {
-                android.util.Log.i("VIBE_PLAYBACK", "[Mode: CONNECT] Sending Web API startPlayback for URI: ${track.uri}...")
-                val result = apiService.startPlayback(uris = listOf(track.uri))
-                if (result.isSuccess) {
-                    android.util.Log.i("VIBE_PLAYBACK", "[Mode: CONNECT] Successfully started remote playback on active Spotify Connect device!")
-                } else {
-                    val err = result.exceptionOrNull()
-                    android.util.Log.w("VIBE_PLAYBACK", "[Mode: CONNECT] Failed to start Connect playback: ${err?.message}")
-                    if (settings.autoFallbackEnabled) {
-                        android.util.Log.i("VIBE_PLAYBACK", "[Mode: CONNECT -> Fallback] Falling back to local on-device ExoPlayer playback...")
-                        Toast.makeText(this@MainActivity, "Connect fallito: riproduzione in locale", Toast.LENGTH_SHORT).show()
-                        audioPlayer.playTrack(track, contextTracks)
-                    } else {
-                        android.util.Log.w("VIBE_PLAYBACK", "[Mode: CONNECT] Auto-fallback disabled. No music started.")
-                        Toast.makeText(this@MainActivity, "Nessun dispositivo Spotify Connect attivo", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } else if (settings.playbackMode == PlaybackMode.LIBRESPOT) {
-                android.util.Log.i("VIBE_PLAYBACK", "[Mode: LIBRESPOT] Selected Librespot receiver mode (enabled=${settings.isLibrespotEnabled})")
-                if (settings.autoFallbackEnabled) {
-                    android.util.Log.i("VIBE_PLAYBACK", "[Mode: LIBRESPOT -> Fallback] Librespot receiver daemon inactive -> Falling back to ExoPlayer.")
-                    audioPlayer.playTrack(track, contextTracks)
-                } else {
-                    Toast.makeText(this@MainActivity, "Ricevitore Librespot non attivo", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                android.util.Log.i("VIBE_PLAYBACK", "[Mode: STANDALONE] Routing track '${track.name}' to on-device ExoPlayer engine...")
-                audioPlayer.playTrack(track, contextTracks)
-            }
+            android.util.Log.i("VIBE_PLAYBACK", ">>> Play Track Clicked: '${track.name}' by '${track.artists.firstOrNull()?.name}' (URI: ${track.uri}) | Mode: ${settings.playbackMode}")
+            audioPlayer.playTrack(track, contextTracks)
         }
     }
 
@@ -637,20 +610,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
             android.util.Log.i("VIBE_PLAYBACK", ">>> Play Collection Clicked: ${tracks.size} tracks, startIndex: $startIndex | Mode: ${settings.playbackMode}")
-            if (settings.playbackMode == PlaybackMode.CONNECT && tracks.isNotEmpty()) {
-                val uris = tracks.drop(startIndex).map { it.uri }
-                android.util.Log.i("VIBE_PLAYBACK", "[Mode: CONNECT] Sending Web API startPlayback for ${uris.size} tracks...")
-                val result = apiService.startPlayback(uris = uris)
-                if (result.isFailure) {
-                    android.util.Log.w("VIBE_PLAYBACK", "[Mode: CONNECT] Failed: ${result.exceptionOrNull()?.message}")
-                    if (settings.autoFallbackEnabled) {
-                        android.util.Log.i("VIBE_PLAYBACK", "[Mode: CONNECT -> Fallback] Falling back to local on-device ExoPlayer collection...")
-                        audioPlayer.playFilteredCollection(tracks, startIndex)
-                    }
-                }
-            } else {
-                audioPlayer.playFilteredCollection(tracks, startIndex)
-            }
+            audioPlayer.playFilteredCollection(tracks, startIndex)
         }
     }
 
@@ -662,11 +622,23 @@ class MainActivity : ComponentActivity() {
                 connectDeviceManager.syncWithWebApiDevices(devs)
             }
         }
+        lifecycleScope.launch {
+            val settings = settingsManager.settingsFlow.first()
+            if (settings.playbackMode == PlaybackMode.SPOTIFY_REMOTE && spotifyAppRemoteManager.isSpotifyInstalled()) {
+                android.util.Log.i("VIBE_REMOTE", "Silently connecting to Spotify App Remote onStart...")
+                spotifyAppRemoteManager.connect(showAuthView = false)
+            }
+        }
     }
 
     override fun onStop() {
         super.onStop()
         connectDeviceManager.stopDiscovery()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        spotifyAppRemoteManager.disconnect()
     }
 
     override fun onNewIntent(intent: Intent) {

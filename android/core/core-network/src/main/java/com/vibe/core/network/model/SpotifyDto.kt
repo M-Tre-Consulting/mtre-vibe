@@ -178,6 +178,17 @@ data class DeviceListResponseDto(
     val devices: List<DeviceDto> = emptyList()
 )
 
+@Serializable
+data class PlaybackResponseDto(
+    val device: DeviceDto? = null,
+    @SerialName("repeat_state") val repeatState: String? = "off",
+    @SerialName("shuffle_state") val shuffleState: Boolean = false,
+    @SerialName("is_playing") val isPlaying: Boolean = false,
+    val item: TrackDto? = null,
+    @SerialName("progress_ms") val progressMs: Long? = 0L,
+    @SerialName("currently_playing_type") val currentlyPlayingType: String? = "track"
+)
+
 // Mapping extensions to Domain models
 fun TrackDto.toDomain(addedAtTimestamp: Long? = null, isLiked: Boolean = false): Track {
     val albumSummary = album?.let {
