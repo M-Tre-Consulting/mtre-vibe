@@ -387,9 +387,167 @@ class SpotifyApiServiceImpl(
         }
     }
 
-    override suspend fun getLyrics(trackId: String): Result<Lyrics?> = withContext(ioDispatcher) {
-        // Fallback or external synced lyrics provider
-        Result.success(null)
+    override suspend fun getLyrics(
+        trackId: String,
+        trackName: String?,
+        artistName: String?,
+        durationSec: Int?
+    ): Result<Lyrics?> = withContext(ioDispatcher) {
+        runCatching {
+            var title = trackName?.trim()
+            var artist = artistName?.trim()
+            var duration = durationSec
+
+            // If title or artist is missing, fetch track info from Spotify API
+            if (title.isNullOrBlank() || artist.isNullOrBlank()) {
+                try {
+                    val trackResp = retrofitApi.getTrack(trackId)
+                    if (trackResp.isSuccessful) {
+                        val body = trackResp.body()
+                        title = body?.name
+                        artist = body?.artists?.firstOrNull()?.name
+                        duration = ((body?.durationMs ?: 0L) / 1000).toInt()
+                    }
+                } catch (_: Exception) {}
+            }
+
+            if (title.isNullOrBlank() || artist.isNullOrBlank()) {
+                return@runCatching null
+            }
+
+            val cleanTitle = cleanLyricsQuery(title)
+            val cleanArtist = artist.split(",", ";", "&", "feat.", "ft.").first().trim()
+
+            // 1. Try LRCLIB exact get
+            var lyrics = fetchFromLrclibGet(cleanTitle, cleanArtist, duration, trackId)
+
+            // 2. If null, try LRCLIB search with cleaned query
+            if (lyrics == null) {
+                lyrics = fetchFromLrclibSearch("$cleanArtist $cleanTitle", trackId)
+            }
+
+            // 3. If still null and cleanTitle differed, try original title
+            if (lyrics == null && cleanTitle != title) {
+                lyrics = fetchFromLrclibSearch("$artist $title", trackId)
+            }
+
+            lyrics
+        }
+    }
+
+    private fun cleanLyricsQuery(raw: String): String {
+        return raw
+            .replace(Regex("""(?i)\s*[\(\[](feat|ft|with|remaster|live|bonus|deluxe|version|radio|edit).*?[\)\]]"""), "")
+            .replace(Regex("""(?i)\s*-\s*(remaster|live|bonus|deluxe|version|radio edit|edit).*$"""), "")
+            .trim()
+    }
+
+    private fun fetchFromLrclibGet(title: String, artist: String, durationSec: Int?, trackId: String): Lyrics? {
+        val urlBuilder = StringBuilder("https://lrclib.net/api/get?")
+        urlBuilder.append("track_name=").append(java.net.URLEncoder.encode(title, "UTF-8"))
+        urlBuilder.append("&artist_name=").append(java.net.URLEncoder.encode(artist, "UTF-8"))
+        if (durationSec != null && durationSec > 0) {
+            urlBuilder.append("&duration=").append(durationSec)
+        }
+
+        val request = Request.Builder()
+            .url(urlBuilder.toString())
+            .header("User-Agent", "VibeMusicApp/1.0 (https://github.com/vibe)")
+            .build()
+
+        return try {
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
+            parseLrclibResponse(body, trackId)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun fetchFromLrclibSearch(query: String, trackId: String): Lyrics? {
+        val url = "https://lrclib.net/api/search?q=" + java.net.URLEncoder.encode(query, "UTF-8")
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "VibeMusicApp/1.0 (https://github.com/vibe)")
+            .build()
+
+        return try {
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
+            val json = Json { ignoreUnknownKeys = true }
+            val array = json.parseToJsonElement(body).jsonArray
+            if (array.isEmpty()) return null
+            val first = array.first().jsonObject
+            parseLrclibObject(first, trackId)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseLrclibResponse(jsonStr: String, trackId: String): Lyrics? {
+        val json = Json { ignoreUnknownKeys = true }
+        val obj = json.parseToJsonElement(jsonStr).jsonObject
+        return parseLrclibObject(obj, trackId)
+    }
+
+    private fun parseLrclibObject(obj: kotlinx.serialization.json.JsonObject, trackId: String): Lyrics? {
+        val synced = obj["syncedLyrics"]?.jsonPrimitive?.contentOrNull
+        val plain = obj["plainLyrics"]?.jsonPrimitive?.contentOrNull
+
+        if (!synced.isNullOrBlank()) {
+            val lines = parseLrc(synced)
+            if (lines.isNotEmpty()) {
+                return Lyrics(
+                    trackId = trackId,
+                    isSynced = true,
+                    lines = lines,
+                    provider = "LRCLIB"
+                )
+            }
+        }
+
+        if (!plain.isNullOrBlank()) {
+            val lines = plain.lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .mapIndexed { idx, line ->
+                    LyricLine(timeMs = idx * 3000L, words = line)
+                }
+            if (lines.isNotEmpty()) {
+                return Lyrics(
+                    trackId = trackId,
+                    isSynced = false,
+                    lines = lines,
+                    provider = "LRCLIB"
+                )
+            }
+        }
+        return null
+    }
+
+    private fun parseLrc(lrcText: String): List<LyricLine> {
+        val lrcRegex = Regex("""^\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]\s*(.*)$""")
+        val result = mutableListOf<LyricLine>()
+        for (rawLine in lrcText.lineSequence()) {
+            val trimmed = rawLine.trim()
+            if (trimmed.isEmpty()) continue
+            val match = lrcRegex.find(trimmed) ?: continue
+            val min = match.groupValues[1].toLongOrNull() ?: continue
+            val sec = match.groupValues[2].toLongOrNull() ?: continue
+            val msPart = match.groupValues[3]
+            val fractionMs = when (msPart.length) {
+                1 -> msPart.toLong() * 100
+                2 -> msPart.toLong() * 10
+                3 -> msPart.toLong()
+                else -> 0L
+            }
+            val timeMs = min * 60_000L + sec * 1_000L + fractionMs
+            val text = match.groupValues[4].trim()
+            result.add(LyricLine(timeMs = timeMs, words = text))
+        }
+        return result.sortedBy { it.timeMs }
     }
 
     override suspend fun getAvailableDevices(): Result<List<Device>> = withContext(ioDispatcher) {

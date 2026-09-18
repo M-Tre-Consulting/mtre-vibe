@@ -73,15 +73,39 @@ class SpotifyConnectPlayerImpl(
 
     override fun playTrack(track: Track, contextTracks: List<Track>) {
         scope.launch {
+            val trackUri = if (track.uri.startsWith("spotify:track:")) track.uri else "spotify:track:${track.id}"
             val uris = if (contextTracks.isNotEmpty()) {
                 val index = contextTracks.indexOfFirst { it.id == track.id }
-                if (index != -1) contextTracks.drop(index).take(100).map { it.uri }
-                else listOf(track.uri)
+                if (index != -1) {
+                    contextTracks.drop(index).take(50).map {
+                        if (it.uri.startsWith("spotify:track:")) it.uri else "spotify:track:${it.id}"
+                    }
+                } else listOf(trackUri)
             } else {
-                listOf(track.uri)
+                listOf(trackUri)
             }
             Log.i(TAG, "Connect playTrack: '${track.name}' (${uris.size} uris) -> Target Device: $targetDeviceId")
-            val res = apiService.startPlayback(uris = uris, deviceId = targetDeviceId)
+
+            // Ensure target device is known
+            var targetDev = targetDeviceId
+            if (targetDev == null) {
+                val devicesResult = apiService.getAvailableDevices()
+                val devices = devicesResult.getOrNull() ?: emptyList()
+                val activeOrFirst = devices.firstOrNull { it.isActive } ?: devices.firstOrNull()
+                if (activeOrFirst != null) {
+                    targetDev = activeOrFirst.id
+                    targetDeviceId = targetDev
+                }
+            }
+
+            var res = apiService.startPlayback(uris = uris, deviceId = targetDev)
+            if (res.isFailure && targetDev != null) {
+                Log.w(TAG, "Initial startPlayback failed, attempting transferPlayback to '$targetDev'...")
+                apiService.transferPlayback(targetDev, play = true)
+                delay(350)
+                res = apiService.startPlayback(uris = listOf(trackUri), deviceId = targetDev)
+            }
+
             if (res.isSuccess) {
                 _playbackState.update {
                     it.copy(
@@ -92,37 +116,18 @@ class SpotifyConnectPlayerImpl(
                         durationMs = track.durationMs
                     )
                 }
-                delay(500)
+                delay(600)
                 syncRemotePlaybackState()
             } else {
-                Log.e(TAG, "Failed to start Connect playback on device '$targetDeviceId': ${res.exceptionOrNull()?.message}")
+                Log.e(TAG, "Failed to start Connect playback on device '$targetDev': ${res.exceptionOrNull()?.message}")
             }
         }
     }
 
     override fun playFilteredCollection(tracks: List<Track>, startIndex: Int) {
         if (tracks.isEmpty()) return
-        scope.launch {
-            val uris = tracks.drop(startIndex).take(100).map { it.uri }
-            Log.i(TAG, "Connect playFilteredCollection: ${uris.size} tracks -> Target Device: $targetDeviceId")
-            val res = apiService.startPlayback(uris = uris, deviceId = targetDeviceId)
-            if (res.isSuccess) {
-                val initialTrack = tracks.getOrNull(startIndex) ?: tracks.first()
-                _playbackState.update {
-                    it.copy(
-                        currentTrack = initialTrack,
-                        isPlaying = true,
-                        isPaused = false,
-                        positionMs = 0L,
-                        durationMs = initialTrack.durationMs
-                    )
-                }
-                delay(500)
-                syncRemotePlaybackState()
-            } else {
-                Log.e(TAG, "Failed to play collection via Connect: ${res.exceptionOrNull()?.message}")
-            }
-        }
+        val targetTrack = tracks.getOrNull(startIndex) ?: tracks.first()
+        playTrack(targetTrack, tracks)
     }
 
     override fun pause() {

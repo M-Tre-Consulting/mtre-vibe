@@ -248,18 +248,20 @@ class SpotifyAppRemoteManager(
                 return@launch
             }
 
-            Log.i(TAG, "Executing playerApi.play('${track.uri}') for track '${track.name}'")
-            remote.playerApi.play(track.uri)
+            val targetUri = if (track.uri.startsWith("spotify:track:")) track.uri else "spotify:track:${track.id}"
+            Log.i(TAG, "Executing playerApi.play('$targetUri') for track '${track.name}'")
+            remote.playerApi.play(targetUri)
                 .setResultCallback {
                     Log.i(TAG, "playerApi.play succeeded for '${track.name}'")
                     _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
                     // Queue next context tracks if available
-                    val nextTracks = contextTracks.dropWhile { it.uri != track.uri }.drop(1).take(10)
+                    val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(10)
                     if (nextTracks.isNotEmpty()) {
                         scope.launch {
                             delay(500)
                             nextTracks.forEach { t ->
-                                remote.playerApi.queue(t.uri)
+                                val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
+                                remote.playerApi.queue(nextUri)
                             }
                         }
                     }

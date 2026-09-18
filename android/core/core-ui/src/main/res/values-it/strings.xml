@@ -105,6 +105,8 @@
     <string name="lyrics_title">Testo del brano</string>
     <string name="lyrics_close">Chiudi testo</string>
     <string name="lyrics_not_available">Testo non disponibile per questo brano</string>
+    <string name="lyrics_loading">Caricamento testo…</string>
+    <string name="lyrics_synced">Sincronizzato</string>
 
     <!-- Devices -->
     <string name="devices_title">Connetti a un dispositivo</string>

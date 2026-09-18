@@ -44,6 +44,11 @@ interface SpotifyRetrofitApi {
         @Query("offset") offset: Int = 0
     ): Response<SearchResponseDto>
 
+    @GET("v1/tracks/{id}")
+    suspend fun getTrack(
+        @Path("id") trackId: String
+    ): Response<TrackDto>
+
     @GET("v1/artists/{id}")
     suspend fun getArtist(
         @Path("id") artistId: String

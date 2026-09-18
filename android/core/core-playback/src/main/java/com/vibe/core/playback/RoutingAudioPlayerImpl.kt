@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -137,41 +138,74 @@ class RoutingAudioPlayerImpl(
         }
     }
 
-    fun switchToConnect(deviceId: String? = null) {
+    fun switchToConnect(deviceId: String? = null, transferPlayback: Boolean = false) {
+        val prevTrack = _playbackState.value.currentTrack
+        val wasPlaying = _playbackState.value.isPlaying
+
         if (deviceId != null) {
             spotifyConnect.targetDeviceId = deviceId
         }
         if (activeEngine != ActiveEngine.CONNECT) {
+            spotifyRemote.pause()
             exoPlayer.pause()
             activeEngine = ActiveEngine.CONNECT
             spotifyConnect.startPolling()
-            scope.launch {
-                spotifyConnect.syncRemotePlaybackState()
+
+            if (transferPlayback && prevTrack != null && wasPlaying) {
+                spotifyConnect.playTrack(prevTrack, emptyList())
+            } else {
+                scope.launch {
+                    spotifyConnect.syncRemotePlaybackState()
+                }
             }
         }
     }
 
-    fun switchToSpotifyRemote() {
+    fun switchToSpotifyRemote(transferPlayback: Boolean = false) {
+        val prevTrack = _playbackState.value.currentTrack
+        val wasPlaying = _playbackState.value.isPlaying
+
         if (activeEngine != ActiveEngine.SPOTIFY_REMOTE) {
             if (activeEngine == ActiveEngine.CONNECT) {
-                spotifyConnect.stopPolling()
                 spotifyConnect.pause()
+                spotifyConnect.stopPolling()
             }
             exoPlayer.pause()
             activeEngine = ActiveEngine.SPOTIFY_REMOTE
-            _playbackState.value = spotifyRemote.playbackState.value
+
+            if (transferPlayback && prevTrack != null && wasPlaying) {
+                spotifyRemote.playTrack(prevTrack)
+            } else {
+                _playbackState.update { current ->
+                    val remoteState = spotifyRemote.playbackState.value
+                    if (remoteState.currentTrack != null) remoteState
+                    else remoteState.copy(currentTrack = prevTrack ?: current.currentTrack)
+                }
+            }
         }
     }
 
-    fun switchToExoPlayer() {
+    fun switchToExoPlayer(transferPlayback: Boolean = false) {
+        val prevTrack = _playbackState.value.currentTrack
+        val wasPlaying = _playbackState.value.isPlaying
+
         if (activeEngine != ActiveEngine.EXO_PLAYER) {
             if (activeEngine == ActiveEngine.CONNECT) {
-                spotifyConnect.stopPolling()
                 spotifyConnect.pause()
+                spotifyConnect.stopPolling()
             }
             spotifyRemote.pause()
             activeEngine = ActiveEngine.EXO_PLAYER
-            _playbackState.value = exoPlayer.playbackState.value
+
+            if (transferPlayback && prevTrack != null && wasPlaying) {
+                exoPlayer.playTrack(prevTrack)
+            } else {
+                _playbackState.update { current ->
+                    val exoState = exoPlayer.playbackState.value
+                    if (exoState.currentTrack != null) exoState
+                    else exoState.copy(currentTrack = prevTrack ?: current.currentTrack)
+                }
+            }
         }
     }
 

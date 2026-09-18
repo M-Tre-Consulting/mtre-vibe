@@ -24,7 +24,12 @@ interface SpotifyApiService {
     suspend fun getUserSavedAlbums(limit: Int = 50, offset: Int = 0): Result<List<AlbumSummary>>
     suspend fun getLikedSongs(offset: Int, limit: Int): Result<List<Track>>
     suspend fun setLiked(trackId: String, isLiked: Boolean): Result<Unit>
-    suspend fun getLyrics(trackId: String): Result<Lyrics?>
+    suspend fun getLyrics(
+        trackId: String,
+        trackName: String? = null,
+        artistName: String? = null,
+        durationSec: Int? = null
+    ): Result<Lyrics?>
     suspend fun getAvailableDevices(): Result<List<Device>>
     suspend fun transferPlayback(deviceId: String, play: Boolean): Result<Unit>
     suspend fun startPlayback(uris: List<String>? = null, contextUri: String? = null, deviceId: String? = null): Result<Unit>

@@ -37,6 +37,7 @@ import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.model.Album
 import com.vibe.core.model.AlbumSummary
 import com.vibe.core.model.Artist
+import com.vibe.core.model.Lyrics
 import com.vibe.core.model.Playlist
 import com.vibe.core.model.Queue
 import com.vibe.core.model.RepeatMode
@@ -44,6 +45,7 @@ import com.vibe.core.model.Track
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.model.UserProfileDto
+import com.vibe.feature.lyrics.LyricsScreen
 import com.vibe.feature.queue.QueueScreen
 import com.vibe.core.network.auth.AuthState
 import com.vibe.core.network.auth.SpotifyAuthConfig
@@ -104,9 +106,12 @@ class MainActivity : ComponentActivity() {
             var isDevicesDialogVisible by remember { mutableStateOf(false) }
             var isSettingsDialogVisible by remember { mutableStateOf(false) }
             var isQueueVisible by remember { mutableStateOf(false) }
+            var isLyricsVisible by remember { mutableStateOf(false) }
 
             var userProfile by remember { mutableStateOf<UserProfileDto?>(null) }
             var currentQueue by remember { mutableStateOf<Queue?>(null) }
+            var currentLyrics by remember { mutableStateOf<Lyrics?>(null) }
+            var isLoadingLyrics by remember { mutableStateOf(false) }
 
             var activeArtist by remember { mutableStateOf<Artist?>(null) }
             var activeAlbum by remember { mutableStateOf<Album?>(null) }
@@ -141,6 +146,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            LaunchedEffect(isLyricsVisible, playbackState.currentTrack?.id) {
+                if (isLyricsVisible) {
+                    val currentTrack = playbackState.currentTrack
+                    if (currentTrack != null) {
+                        isLoadingLyrics = true
+                        currentLyrics = null
+                        val lyricsResult = apiService.getLyrics(
+                            trackId = currentTrack.id,
+                            trackName = currentTrack.name,
+                            artistName = currentTrack.artists.firstOrNull()?.name,
+                            durationSec = (currentTrack.durationMs / 1000).toInt()
+                        )
+                        currentLyrics = lyricsResult.getOrNull()
+                        isLoadingLyrics = false
+                    } else {
+                        currentLyrics = null
+                        isLoadingLyrics = false
+                    }
+                }
+            }
+
             VibeTheme(isAlbumArtTintEnabled = true) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -171,63 +197,70 @@ class MainActivity : ComponentActivity() {
                         is AuthState.Authenticated -> {
                             Scaffold(
                                 bottomBar = {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .navigationBarsPadding(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    val isAnyModalVisible = isFullPlayerVisible || isQueueVisible || isLyricsVisible || isSettingsDialogVisible || isDevicesDialogVisible
+                                    AnimatedVisibility(
+                                        visible = !isAnyModalVisible,
+                                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
                                     ) {
-                                        // Mini Player Bar docked above Navigation Bar
-                                        AnimatedVisibility(
-                                            visible = playbackState.currentTrack != null,
-                                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .navigationBarsPadding(),
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            MiniPlayerBar(
-                                                playbackState = playbackState,
-                                                onPlayPause = {
-                                                    if (playbackState.isPlaying) audioPlayer.pause()
-                                                    else audioPlayer.resume()
-                                                },
-                                                onSkipNext = { audioPlayer.skipToNext() },
-                                                onBarClick = { isFullPlayerVisible = true },
-                                                onArtistClick = {
-                                                    playbackState.currentTrack?.artists?.firstOrNull()?.id?.let { artistId ->
-                                                        lifecycleScope.launch {
-                                                            apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                            // Mini Player Bar docked above Navigation Bar
+                                            AnimatedVisibility(
+                                                visible = playbackState.currentTrack != null,
+                                                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                                            ) {
+                                                MiniPlayerBar(
+                                                    playbackState = playbackState,
+                                                    onPlayPause = {
+                                                        if (playbackState.isPlaying) audioPlayer.pause()
+                                                        else audioPlayer.resume()
+                                                    },
+                                                    onSkipNext = { audioPlayer.skipToNext() },
+                                                    onBarClick = { isFullPlayerVisible = true },
+                                                    onArtistClick = {
+                                                        playbackState.currentTrack?.artists?.firstOrNull()?.id?.let { artistId ->
+                                                            lifecycleScope.launch {
+                                                                apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                            }
                                                         }
                                                     }
+                                                )
+                                            }
+
+                                            // Material 3 Expressive Floating Pill Navbar
+                                            ExpressivePillNavBar(
+                                                items = listOf(
+                                                    ExpressiveNavItem(
+                                                        id = "home",
+                                                        label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home),
+                                                        icon = Icons.Default.Home
+                                                    ),
+                                                    ExpressiveNavItem(
+                                                        id = "search",
+                                                        label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search),
+                                                        icon = Icons.Default.Search
+                                                    ),
+                                                    ExpressiveNavItem(
+                                                        id = "library",
+                                                        label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library),
+                                                        icon = Icons.Default.LibraryMusic
+                                                    )
+                                                ),
+                                                selectedItemId = if (activeArtist == null && activeAlbum == null && activePlaylist == null) currentScreen else "",
+                                                onItemSelected = { selected ->
+                                                    activeArtist = null
+                                                    activeAlbum = null
+                                                    activePlaylist = null
+                                                    currentScreen = selected
                                                 }
                                             )
                                         }
-
-                                        // Material 3 Expressive Floating Pill Navbar
-                                        ExpressivePillNavBar(
-                                            items = listOf(
-                                                ExpressiveNavItem(
-                                                    id = "home",
-                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_home),
-                                                    icon = Icons.Default.Home
-                                                ),
-                                                ExpressiveNavItem(
-                                                    id = "search",
-                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_search),
-                                                    icon = Icons.Default.Search
-                                                ),
-                                                ExpressiveNavItem(
-                                                    id = "library",
-                                                    label = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.nav_library),
-                                                    icon = Icons.Default.LibraryMusic
-                                                )
-                                            ),
-                                            selectedItemId = if (activeArtist == null && activeAlbum == null && activePlaylist == null) currentScreen else "",
-                                            onItemSelected = { selected ->
-                                                activeArtist = null
-                                                activeAlbum = null
-                                                activePlaylist = null
-                                                currentScreen = selected
-                                            }
-                                        )
                                     }
                                 }
                             ) { innerPadding ->
@@ -339,8 +372,8 @@ class MainActivity : ComponentActivity() {
                                                              onRepeatClick = {
                                                                  audioPlayer.toggleRepeat()
                                                              },
-                                                             onTrackClick = { track, index ->
-                                                                 playLocalCollection(album.tracks, index)
+                                                             onTrackClick = { track, _ ->
+                                                                 playLocalTrack(track, album.tracks)
                                                              }
                                                          )
                                                      }
@@ -383,8 +416,8 @@ class MainActivity : ComponentActivity() {
                                                              onRepeatClick = {
                                                                  audioPlayer.toggleRepeat()
                                                              },
-                                                             onTrackClick = { track, index ->
-                                                                 playLocalCollection(playlist.tracks, index)
+                                                             onTrackClick = { track, _ ->
+                                                                 playLocalTrack(track, playlist.tracks)
                                                              }
                                                          )
                                                      }
@@ -540,6 +573,7 @@ class MainActivity : ComponentActivity() {
                                                 apiService.getArtist(artistId).onSuccess { activeArtist = it }
                                             }
                                         },
+                                        onOpenLyrics = { isLyricsVisible = true },
                                         onToggleShuffle = { audioPlayer.setShuffle(!playbackState.shuffleEnabled) },
                                         onToggleRepeat = {
                                             val next = when (playbackState.repeatMode) {
@@ -549,6 +583,46 @@ class MainActivity : ComponentActivity() {
                                             }
                                             audioPlayer.setRepeatMode(next)
                                         }
+                                    )
+                                }
+                            }
+
+                            // Lyrics Screen Modal
+                            AnimatedVisibility(
+                                visible = isLyricsVisible,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(animationSpec = androidx.compose.animation.core.tween(250)),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(animationSpec = androidx.compose.animation.core.tween(200))
+                            ) {
+                                BackHandler { isLyricsVisible = false }
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .statusBarsPadding()
+                                        .navigationBarsPadding(),
+                                    color = MaterialTheme.colorScheme.background
+                                ) {
+                                    LyricsScreen(
+                                        lyrics = currentLyrics,
+                                        currentPositionMs = playbackState.positionMs,
+                                        isLoading = isLoadingLyrics,
+                                        trackName = playbackState.currentTrack?.name,
+                                        artistName = playbackState.currentTrack?.artists?.firstOrNull()?.name,
+                                        onSeekTo = { posMs ->
+                                            audioPlayer.seekTo(posMs)
+                                        },
+                                        onClose = { isLyricsVisible = false }
                                     )
                                 }
                             }
@@ -623,8 +697,7 @@ class MainActivity : ComponentActivity() {
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote()
-                                            audioPlayer.resume()
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote(transferPlayback = true)
                                         }
                                     },
                                     onSelectDevice = { dev ->
@@ -632,18 +705,7 @@ class MainActivity : ComponentActivity() {
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id)
-                                            if (!dev.isActive) {
-                                                val currentTrack = playbackState.currentTrack
-                                                if (playbackState.isPlaying && currentTrack != null) {
-                                                    val res = apiService.startPlayback(uris = listOf(currentTrack.uri), deviceId = dev.id)
-                                                    if (res.isFailure) {
-                                                        apiService.transferPlayback(dev.id, play = true)
-                                                    }
-                                                } else {
-                                                    apiService.transferPlayback(dev.id, play = false)
-                                                }
-                                            }
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id, transferPlayback = true)
                                         }
                                     },
                                     onVolumeChange = { dev, vol ->
@@ -697,11 +759,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun playLocalCollection(tracks: List<Track>, startIndex: Int) {
-        lifecycleScope.launch {
-            val settings = settingsManager.settingsFlow.first()
-            android.util.Log.i("VIBE_PLAYBACK", ">>> Play Collection Clicked: ${tracks.size} tracks, startIndex: $startIndex | Mode: ${settings.playbackMode}")
-            audioPlayer.playFilteredCollection(tracks, startIndex)
-        }
+        val targetTrack = tracks.getOrNull(startIndex) ?: tracks.firstOrNull() ?: return
+        playLocalTrack(targetTrack, tracks)
     }
 
     private fun addTrackToQueue(track: Track) {

@@ -105,6 +105,8 @@
     <string name="lyrics_title">Lyrics</string>
     <string name="lyrics_close">Close Lyrics</string>
     <string name="lyrics_not_available">Lyrics not available for this track</string>
+    <string name="lyrics_loading">Loading lyrics…</string>
+    <string name="lyrics_synced">Synced</string>
 
     <!-- Devices -->
     <string name="devices_title">Connect to a device</string>
