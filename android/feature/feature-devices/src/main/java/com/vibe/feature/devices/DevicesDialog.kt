@@ -11,10 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vibe.core.model.Device
 import com.vibe.core.model.DeviceType
-import com.vibe.core.model.isRemote
+import com.vibe.core.model.isCurrentDevice
 
 @Composable
 fun DevicesDialog(
@@ -22,16 +23,25 @@ fun DevicesDialog(
     isLocalPlaybackActive: Boolean = true,
     activeDeviceId: String? = null,
     isRefreshing: Boolean = false,
+    isSpotifyAppInstalled: Boolean = true,
     onSelectLocalPlayback: () -> Unit = {},
     onSelectDevice: (Device) -> Unit,
     onVolumeChange: (Device, Int) -> Unit,
+    onWakeSpotify: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    val remoteDevices = remember(devices) {
-        devices.filter { it.isRemote }
+    val phoneConnectDevice = remember(devices) {
+        devices.firstOrNull { it.isCurrentDevice(devices) }
     }
-    val anyRemoteActive = remoteDevices.any { it.isActive || (activeDeviceId != null && it.id == activeDeviceId) }
-    val effectiveLocalActive = isLocalPlaybackActive && !anyRemoteActive
+    val otherDevices = remember(devices) {
+        devices.filter { !it.isCurrentDevice(devices) }
+    }
+
+    val isPhoneConnectActive = phoneConnectDevice != null &&
+        (phoneConnectDevice.isActive || (activeDeviceId != null && phoneConnectDevice.id == activeDeviceId))
+    val isInternalLocalActive = isLocalPlaybackActive && !isPhoneConnectActive &&
+        !otherDevices.any { it.isActive || (activeDeviceId != null && it.id == activeDeviceId) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -45,71 +55,140 @@ fun DevicesDialog(
                     stringResource(com.vibe.core.ui.R.string.devices_title),
                     style = MaterialTheme.typography.titleLarge
                 )
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
-            }
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
-                // 1. This Phone (Local playback option)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (effectiveLocalActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    onClick = onSelectLocalPlayback
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Smartphone,
-                            contentDescription = null,
-                            tint = if (effectiveLocalActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "${Build.MODEL} (${stringResource(com.vibe.core.ui.R.string.devices_this_phone)})",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (effectiveLocalActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (effectiveLocalActive) {
-                                    stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_playing)
-                                } else {
-                                    stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_tap)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Aggiorna dispositivi",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+            ) {
+                // SECTION 1: Questo Dispositivo
                 Text(
-                    stringResource(com.vibe.core.ui.R.string.devices_available_speakers),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Questo dispositivo (${Build.MODEL})",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (remoteDevices.isEmpty()) {
+                if (phoneConnectDevice != null) {
+                    // Phone Spotify Connect endpoint is online
+                    DeviceItemRow(
+                        device = phoneConnectDevice,
+                        isCurrentlyActive = isPhoneConnectActive,
+                        subtitle = "Spotify Connect (App Spotify locale)",
+                        onSelect = { onSelectDevice(phoneConnectDevice) },
+                        onVolumeChange = { vol -> onVolumeChange(phoneConnectDevice, vol) }
+                    )
+                } else {
+                    // Phone Spotify Connect is not detected yet
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isInternalLocalActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        onClick = onSelectLocalPlayback
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Smartphone,
+                                contentDescription = null,
+                                tint = if (isInternalLocalActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${Build.MODEL} (Player Vibe)",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (isInternalLocalActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isInternalLocalActive) "In riproduzione su questo dispositivo"
+                                    else "Tocca per riprodurre localmente",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    if (isSpotifyAppInstalled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onWakeSpotify
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.OpenInNew,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Sveglia Spotify Connect",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Apri l'app Spotify per renderla visibile come altoparlante Connect",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // SECTION 2: Altri Dispositivi
+                Text(
+                    text = "Altri dispositivi Spotify Connect",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (otherDevices.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 20.dp),
+                            .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isRefreshing) {
@@ -148,7 +227,7 @@ fun DevicesDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(remoteDevices, key = { it.id }) { device ->
+                        items(otherDevices, key = { it.id }) { device ->
                             val isItemActive = device.isActive || (activeDeviceId != null && device.id == activeDeviceId)
                             DeviceItemRow(
                                 device = device,
@@ -173,6 +252,7 @@ fun DevicesDialog(
 fun DeviceItemRow(
     device: Device,
     isCurrentlyActive: Boolean,
+    subtitle: String? = null,
     onSelect: () -> Unit,
     onVolumeChange: (Int) -> Unit
 ) {
@@ -207,8 +287,8 @@ fun DeviceItemRow(
                         color = if (isCurrentlyActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (isCurrentlyActive) androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_remote_playing)
-                               else androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.devices_spotify_connect),
+                        text = subtitle ?: if (isCurrentlyActive) stringResource(com.vibe.core.ui.R.string.devices_remote_playing)
+                               else stringResource(com.vibe.core.ui.R.string.devices_spotify_connect),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

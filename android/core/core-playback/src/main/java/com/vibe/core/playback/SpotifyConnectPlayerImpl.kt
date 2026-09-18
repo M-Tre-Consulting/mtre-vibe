@@ -4,6 +4,7 @@ import android.util.Log
 import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import com.vibe.core.model.isCurrentDevice
 import com.vibe.core.model.isRemote
 import com.vibe.core.network.SpotifyApiService
 import kotlinx.coroutines.CoroutineScope
@@ -99,6 +100,7 @@ class SpotifyConnectPlayerImpl(
             val devicesResult = apiService.getAvailableDevices()
             val devices = devicesResult.getOrNull() ?: emptyList()
             val activeOrFirst = devices.firstOrNull { it.isActive }
+                ?: devices.firstOrNull { it.isCurrentDevice(devices) }
                 ?: devices.firstOrNull { it.isRemote }
                 ?: devices.firstOrNull()
             if (activeOrFirst != null) {
@@ -175,6 +177,7 @@ class SpotifyConnectPlayerImpl(
                 val devicesResult = apiService.getAvailableDevices()
                 val devices = devicesResult.getOrNull() ?: emptyList()
                 val activeOrFirst = devices.firstOrNull { it.isActive }
+                    ?: devices.firstOrNull { it.isCurrentDevice(devices) }
                     ?: devices.firstOrNull { it.isRemote }
                     ?: devices.firstOrNull()
                 if (activeOrFirst != null) {

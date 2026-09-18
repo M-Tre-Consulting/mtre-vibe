@@ -47,6 +47,7 @@ import com.vibe.core.model.Playlist
 import com.vibe.core.model.Queue
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import com.vibe.core.model.isCurrentDevice
 import com.vibe.core.model.isRemote
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
@@ -98,6 +99,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        spotifyAppRemoteManager.setActivity(this)
         handleIncomingIntent(intent)
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -782,40 +784,73 @@ class MainActivity : ComponentActivity() {
                                 val activeDeviceState = playbackState.activeDevice
                                 val anyRemoteActive = devices.any { it.isActive && it.isRemote } ||
                                         (activeDeviceState?.isRemote == true)
-                                val isLocalActive = (vibeSettings.playbackMode != PlaybackMode.CONNECT) && !anyRemoteActive
+                                val routingPlayer = audioPlayer as? RoutingAudioPlayerImpl
+                                val isSpotifyInstalled = routingPlayer?.spotifyRemote?.isSpotifyInstalled() ?: false
                                 val activeRemoteId = activeDeviceState?.id ?: devices.firstOrNull { it.isActive && it.isRemote }?.id
+                                val isLocalActive = (vibeSettings.playbackMode != PlaybackMode.CONNECT) && !anyRemoteActive
 
                                 DevicesDialog(
                                     devices = devices,
                                     isLocalPlaybackActive = isLocalActive,
                                     activeDeviceId = activeRemoteId,
                                     isRefreshing = isRefreshingDevices,
+                                    isSpotifyAppInstalled = isSpotifyInstalled,
                                     onSelectLocalPlayback = {
-                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to SPOTIFY_REMOTE")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device")
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
-                                            settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
-                                            val phoneDevice = devices.firstOrNull { 
-                                                !it.isRemote || it.type == DeviceType.SMARTPHONE || it.name.contains(android.os.Build.MODEL, ignoreCase = true) 
+                                            val phoneConnectDevice = devices.firstOrNull { it.isCurrentDevice(devices) }
+                                            if (phoneConnectDevice != null) {
+                                                settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
+                                                routingPlayer?.switchToConnect(phoneConnectDevice.id, transferPlayback = playbackState.isPlaying)
+                                                apiService.transferPlayback(phoneConnectDevice.id, play = playbackState.isPlaying)
+                                                Toast.makeText(this@MainActivity, "Connesso a ${phoneConnectDevice.name} via Spotify Connect", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
+                                                routingPlayer?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
                                             }
-                                            if (phoneDevice != null) {
-                                                apiService.transferPlayback(phoneDevice.id, play = playbackState.isPlaying)
-                                            }
+                                            delay(500)
+                                            refreshDevicesAndSyncPlayback()
                                         }
                                     },
                                     onSelectDevice = { dev ->
-                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id, transferPlayback = playbackState.isPlaying)
-                                            apiService.transferPlayback(dev.id, play = playbackState.isPlaying)
+                                            routingPlayer?.switchToConnect(dev.id, transferPlayback = playbackState.isPlaying)
+                                            val result = apiService.transferPlayback(dev.id, play = playbackState.isPlaying)
+                                            if (result.isSuccess) {
+                                                Toast.makeText(this@MainActivity, "Connesso a ${dev.name}", Toast.LENGTH_SHORT).show()
+                                            }
+                                            delay(500)
+                                            refreshDevicesAndSyncPlayback()
                                         }
                                     },
                                     onVolumeChange = { dev, vol ->
                                         android.util.Log.d("VIBE_CONNECT", "Volume changed for '${dev.name}': $vol%")
                                         audioPlayer.setVolume(vol.toFloat() / 100f)
+                                    },
+                                    onWakeSpotify = {
+                                        val launchIntent = packageManager.getLaunchIntentForPackage("com.spotify.music")
+                                        if (launchIntent != null) {
+                                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            startActivity(launchIntent)
+                                            Toast.makeText(this@MainActivity, "Apertura Spotify per attivare Connect...", Toast.LENGTH_SHORT).show()
+                                            lifecycleScope.launch {
+                                                delay(2500)
+                                                refreshDevicesAndSyncPlayback()
+                                            }
+                                        } else {
+                                            Toast.makeText(this@MainActivity, "App Spotify non installata", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onRefresh = {
+                                        lifecycleScope.launch {
+                                            isRefreshingDevices = true
+                                            refreshDevicesAndSyncPlayback()
+                                            isRefreshingDevices = false
+                                        }
                                     },
                                     onDismiss = { isDevicesDialogVisible = false }
                                 )
@@ -923,7 +958,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
                                     .statusBarsPadding()
-                                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 currentAlertMessage?.let { alertText ->
                                     Surface(
@@ -931,51 +966,85 @@ class MainActivity : ComponentActivity() {
                                         color = MaterialTheme.colorScheme.errorContainer,
                                         tonalElevation = 8.dp,
                                         shadowElevation = 10.dp,
-                                        modifier = Modifier.fillMaxWidth(0.94f)
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Column(
+                                            modifier = Modifier.padding(14.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Warning,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = alertText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            TextButton(
-                                                onClick = {
-                                                    isDevicesDialogVisible = true
-                                                    currentAlertMessage = null
-                                                },
-                                                colors = ButtonDefaults.textButtonColors(
-                                                    contentColor = MaterialTheme.colorScheme.error
-                                                )
-                                            ) {
-                                                Text(
-                                                    stringResource(com.vibe.core.ui.R.string.devices_title),
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                            IconButton(
-                                                onClick = { currentAlertMessage = null },
-                                                modifier = Modifier.size(32.dp)
+                                            Row(
+                                                verticalAlignment = Alignment.Top,
+                                                modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Chiudi",
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                    modifier = Modifier.size(18.dp)
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .padding(top = 2.dp)
                                                 )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = alertText,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(
+                                                    onClick = { currentAlertMessage = null },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Chiudi",
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val spotifyInstalled = (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyRemote?.isSpotifyInstalled() == true
+                                                if (spotifyInstalled) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            val launchIntent = packageManager.getLaunchIntentForPackage("com.spotify.music")
+                                                            if (launchIntent != null) {
+                                                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                startActivity(launchIntent)
+                                                            }
+                                                            currentAlertMessage = null
+                                                        },
+                                                        modifier = Modifier.height(36.dp),
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                                    ) {
+                                                        Text("Apri Spotify", style = MaterialTheme.typography.labelLarge)
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                }
+                                                Button(
+                                                    onClick = {
+                                                        isDevicesDialogVisible = true
+                                                        currentAlertMessage = null
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.error,
+                                                        contentColor = MaterialTheme.colorScheme.onError
+                                                    ),
+                                                    modifier = Modifier.height(36.dp),
+                                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                                                ) {
+                                                    Text(
+                                                        "Dispositivi",
+                                                        style = MaterialTheme.typography.labelLarge,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1027,21 +1096,24 @@ class MainActivity : ComponentActivity() {
             val playbackResult = apiService.getPlaybackState()
             val state = playbackResult.getOrNull()
 
-            // Ensure targetDeviceId is set if any remote device (e.g. PC 'arbeitspeitz') is present
-            val remoteDevice = state?.activeDevice?.takeIf { it.isRemote }
-                ?: webApiDevices.firstOrNull { it.isActive && it.isRemote }
-                ?: webApiDevices.firstOrNull { it.isRemote }
+            val currentTarget = (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyConnect?.targetDeviceId
+            val matchingCurrent = webApiDevices.firstOrNull { it.id == currentTarget }
 
-            if (remoteDevice != null) {
-                (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyConnect?.targetDeviceId = remoteDevice.id
+            // Determine active or target device (respecting current phone/device or active)
+            val activeDevice = state?.activeDevice
+                ?: webApiDevices.firstOrNull { it.isActive }
+                ?: matchingCurrent
+                ?: webApiDevices.firstOrNull { it.isCurrentDevice(webApiDevices) }
+                ?: webApiDevices.firstOrNull()
+
+            if (activeDevice != null) {
+                (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyConnect?.targetDeviceId = activeDevice.id
             }
 
-            val activeDevice = state?.activeDevice ?: webApiDevices.firstOrNull { it.isActive }
-
-            if (activeDevice != null && activeDevice.isRemote) {
+            if (activeDevice != null && state?.isPlaying == true) {
                 android.util.Log.i(
                     "VIBE_CONNECT",
-                    "Active remote device detected: '${activeDevice.name}' (type=${activeDevice.type}, isPlaying=${state?.isPlaying})"
+                    "Active playback device detected: '${activeDevice.name}' (type=${activeDevice.type}, isPlaying=${state.isPlaying})"
                 )
                 if (autoSwitchIfRemoteActive) {
                     val currentSettings = settingsManager.settingsFlow.first()
@@ -1082,6 +1154,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        spotifyAppRemoteManager.setActivity(null)
         spotifyAppRemoteManager.disconnect()
     }
 

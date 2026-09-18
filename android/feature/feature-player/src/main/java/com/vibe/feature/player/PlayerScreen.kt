@@ -172,24 +172,25 @@ fun MiniPlayerBar(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                            } else if (activeDev != null && activeDev.isRemote) {
+                            } else if (activeDev != null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(top = 1.dp)
                                 ) {
                                     Icon(
                                         imageVector = when (activeDev.type) {
+                                            DeviceType.SMARTPHONE -> Icons.Default.PhoneAndroid
                                             DeviceType.COMPUTER -> Icons.Default.Computer
                                             DeviceType.SPEAKER -> Icons.Default.Speaker
                                             else -> Icons.Default.SpeakerGroup
                                         },
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(11.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = activeDev.name,
+                                        text = "Ascolto su ${activeDev.name}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,
@@ -364,7 +365,7 @@ fun FullPlayerScreen(
                         )
 
                         val activeDev = playbackState.activeDevice
-                        if (activeDev != null && activeDev.isRemote) {
+                        if (activeDev != null) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
@@ -376,6 +377,7 @@ fun FullPlayerScreen(
                                 ) {
                                     Icon(
                                         imageVector = when (activeDev.type) {
+                                            DeviceType.SMARTPHONE -> Icons.Default.PhoneAndroid
                                             DeviceType.COMPUTER -> Icons.Default.Computer
                                             DeviceType.SPEAKER -> Icons.Default.Speaker
                                             else -> Icons.Default.SpeakerGroup
@@ -485,7 +487,7 @@ fun FullPlayerScreen(
                 )
 
                 val activeDev = playbackState.activeDevice
-                if (activeDev != null && activeDev.isRemote) {
+                if (activeDev != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Surface(
                         shape = CircleShape,
@@ -498,6 +500,7 @@ fun FullPlayerScreen(
                         ) {
                             Icon(
                                 imageVector = when (activeDev.type) {
+                                    DeviceType.SMARTPHONE -> Icons.Default.PhoneAndroid
                                     DeviceType.COMPUTER -> Icons.Default.Computer
                                     DeviceType.SPEAKER -> Icons.Default.Speaker
                                     else -> Icons.Default.SpeakerGroup
@@ -562,7 +565,7 @@ private fun PlayerTopBar(
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isRemote = activeDevice != null && activeDevice.isRemote
+    val isConnectActive = activeDevice != null
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -593,19 +596,20 @@ private fun PlayerTopBar(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isRemote) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                color = if (isConnectActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(40.dp),
                 onClick = onOpenDevices
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = when (activeDevice?.type) {
+                            DeviceType.SMARTPHONE -> Icons.Default.PhoneAndroid
                             DeviceType.COMPUTER -> Icons.Default.Computer
                             DeviceType.SPEAKER -> Icons.Default.Speaker
                             else -> Icons.Default.SpeakerGroup
                         },
                         contentDescription = stringResource(com.vibe.core.ui.R.string.player_devices),
-                        tint = if (isRemote) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        tint = if (isConnectActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }

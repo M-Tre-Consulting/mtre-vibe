@@ -54,6 +54,11 @@ class SpotifyAppRemoteManager(
     private var playerStateSubscription: Subscription<PlayerState>? = null
     private var currentPlayingTrack: Track? = null
     private var tickerJob: Job? = null
+    private var activityRef: java.lang.ref.WeakReference<android.app.Activity>? = null
+
+    fun setActivity(activity: android.app.Activity?) {
+        activityRef = if (activity != null) java.lang.ref.WeakReference(activity) else null
+    }
 
     private val _isConnected = MutableStateFlow(false)
     val isConnectedFlow: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -96,7 +101,8 @@ class SpotifyAppRemoteManager(
         }
 
         val clientId = runCatching { clientIdProvider() }.getOrDefault(SpotifyAuthConfig.DEFAULT_CLIENT_ID)
-        Log.i(TAG, "Connecting to Spotify App Remote (ClientId: $clientId, RedirectURI: $redirectUri, AuthView: $showAuthView)...")
+        val connectContext = activityRef?.get() ?: context
+        Log.i(TAG, "Connecting to Spotify App Remote with ${connectContext.javaClass.simpleName} (ClientId: $clientId, RedirectURI: $redirectUri, AuthView: $showAuthView)...")
 
         val result = withTimeoutOrNull(8000L) {
             suspendCancellableCoroutine<Boolean> { cont ->
@@ -105,7 +111,7 @@ class SpotifyAppRemoteManager(
                     .showAuthView(showAuthView)
                     .build()
 
-                SpotifyAppRemote.connect(context, connectionParams, object : Connector.ConnectionListener {
+                SpotifyAppRemote.connect(connectContext, connectionParams, object : Connector.ConnectionListener {
                     override fun onConnected(remote: SpotifyAppRemote) {
                         Log.i(TAG, ">>> SUCCESS: Connected to Spotify App Remote via IPC! <<<")
                         appRemote = remote

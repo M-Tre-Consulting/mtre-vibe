@@ -102,14 +102,15 @@ class RoutingAudioPlayerImpl(
     }
 
     private fun cleanPlaybackError(raw: String): String {
-        if (raw.contains("Explicit user authorization is required", ignoreCase = true)) {
-            return "Autorizzazione Spotify richiesta: l'app Spotify sul tablet non autorizza la riproduzione IPC. Seleziona il tuo PC da Dispositivi."
+        if (raw.contains("Explicit user authorization is required", ignoreCase = true) ||
+            raw.contains("UserNotAuthorizedException", ignoreCase = true)) {
+            return "IPC Spotify non autorizzato su questo dispositivo. Seleziona un dispositivo o apri Spotify per attivare Connect."
         }
         if (raw.contains("NO_ACTIVE_DEVICE", ignoreCase = true) || raw.contains("No active device", ignoreCase = true)) {
-            return "Nessun dispositivo attivo: apri Spotify sul PC o selezionalo dall'icona Dispositivi."
+            return "Nessun dispositivo attivo: apri Spotify sul telefono o PC, oppure selezionalo da Dispositivi."
         }
         if (raw.contains("Timeout", ignoreCase = true)) {
-            return "Timeout risposta da Spotify: verifica che il dispositivo sia acceso e connesso."
+            return "Timeout risposta da Spotify: verifica che l'app Spotify o il dispositivo siano attivi."
         }
         val jsonRegex = Regex("""\{.*"message"\s*:\s*"([^"]+)".*\}""")
         val match = jsonRegex.find(raw)
@@ -158,18 +159,18 @@ class RoutingAudioPlayerImpl(
                             Log.w(TAG, "Spotify App Remote failed: $errMsg")
 
                             if (settings.autoFallbackEnabled) {
-                                // 1. Attempt fallback to Spotify Connect if a remote device (e.g. PC 'arbeitspeitz') is known
+                                // 1. Attempt fallback to Spotify Connect (either local phone or remote PC)
                                 Log.i(TAG, "Attempting fallback to Spotify Connect...")
                                 switchToConnect()
                                 val connectResult = spotifyConnect.playTrackWithResult(track, contextTracks)
                                 if (connectResult.isSuccess) {
-                                    val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "PC"
-                                    val fallbackMsg = "App Spotify locale non autorizzata. Riproduzione avviata su $targetName via Spotify Connect."
+                                    val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "Spotify Connect"
+                                    val fallbackMsg = "Riproduzione avviata su $targetName via Spotify Connect."
                                     Log.i(TAG, fallbackMsg)
                                     _errorEvents.emit(fallbackMsg)
                                 } else {
                                     // 2. If Connect also fails, fallback to ExoPlayer local engine
-                                    val fallbackMsg = "Spotify locale non disponibile ($errMsg). Avvio riproduzione locale..."
+                                    val fallbackMsg = "Spotify non disponibile ($errMsg). Avvio riproduzione locale..."
                                     Log.w(TAG, fallbackMsg)
                                     _errorEvents.emit(fallbackMsg)
                                     switchToExoPlayer()
