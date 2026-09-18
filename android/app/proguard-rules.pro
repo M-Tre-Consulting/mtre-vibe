@@ -42,3 +42,24 @@
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler { *; }
 -dontwarn kotlinx.coroutines.**
+
+# Spotify App Remote SDK & Protocol types
+-keep class com.spotify.android.appremote.** { *; }
+-keep interface com.spotify.android.appremote.** { *; }
+-keep class com.spotify.protocol.** { *; }
+-keep interface com.spotify.protocol.** { *; }
+-keepclassmembers class com.spotify.protocol.types.** { *; }
+-dontwarn com.spotify.android.appremote.**
+-dontwarn com.spotify.protocol.**
+-dontwarn com.spotify.base.annotations.**
+-dontwarn com.fasterxml.jackson.**
+
+# Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.** { *; }
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-dontwarn com.google.gson.**
+
