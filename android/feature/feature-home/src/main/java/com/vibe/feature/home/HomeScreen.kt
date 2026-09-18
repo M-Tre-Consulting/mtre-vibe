@@ -88,7 +88,7 @@ fun HomeScreen(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.SpeakerGroup,
-                                contentDescription = "Dispositivi",
+                                contentDescription = stringResource(com.vibe.core.ui.R.string.player_devices),
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -104,7 +104,7 @@ fun HomeScreen(
                         if (!userAvatarUrl.isNullOrBlank()) {
                             AsyncImage(
                                 model = userAvatarUrl,
-                                contentDescription = "Profilo",
+                                contentDescription = stringResource(com.vibe.core.ui.R.string.profile),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(CircleShape),
@@ -114,7 +114,7 @@ fun HomeScreen(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Person,
-                                    contentDescription = "Profilo",
+                                    contentDescription = stringResource(com.vibe.core.ui.R.string.profile),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(22.dp)
                                 )

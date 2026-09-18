@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity() {
                                         try {
                                             authManager.launchLogin(this@MainActivity, customClientId = enteredClientId)
                                         } catch (e: Exception) {
-                                            Toast.makeText(this@MainActivity, e.message ?: "Invalid Client ID", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(this@MainActivity, e.message ?: getString(com.vibe.core.ui.R.string.invalid_client_id), Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
@@ -540,9 +540,9 @@ class MainActivity : ComponentActivity() {
                                                     activePlaylist = Playlist(
                                                         id = "liked_songs",
                                                         uri = "spotify:user:liked",
-                                                        name = "Brani che ti piacciono",
-                                                        description = "I brani salvati nella tua libreria",
-                                                        ownerName = "Tu",
+                                                        name = getString(com.vibe.core.ui.R.string.library_liked_songs),
+                                                        description = getString(com.vibe.core.ui.R.string.library_liked_songs_desc),
+                                                        ownerName = getString(com.vibe.core.ui.R.string.playlist_owner_you),
                                                         ownerId = "me",
                                                         tracks = userLikedTracks,
                                                         totalTracks = userLikedTracks.size,
@@ -804,7 +804,11 @@ class MainActivity : ComponentActivity() {
                                                 settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
                                                 routingPlayer?.switchToConnect(phoneConnectDevice.id, transferPlayback = playbackState.isPlaying)
                                                 apiService.transferPlayback(phoneConnectDevice.id, play = playbackState.isPlaying)
-                                                Toast.makeText(this@MainActivity, "Connesso a ${phoneConnectDevice.name} via Spotify Connect", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    this@MainActivity,
+                                                    getString(com.vibe.core.ui.R.string.connected_to_connect_device_format, phoneConnectDevice.name),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             } else {
                                                 settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
                                                 routingPlayer?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
@@ -821,7 +825,11 @@ class MainActivity : ComponentActivity() {
                                             routingPlayer?.switchToConnect(dev.id, transferPlayback = playbackState.isPlaying)
                                             val result = apiService.transferPlayback(dev.id, play = playbackState.isPlaying)
                                             if (result.isSuccess) {
-                                                Toast.makeText(this@MainActivity, "Connesso a ${dev.name}", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    this@MainActivity,
+                                                    getString(com.vibe.core.ui.R.string.connected_to_device_format, dev.name),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                             delay(500)
                                             refreshDevicesAndSyncPlayback()
@@ -836,13 +844,21 @@ class MainActivity : ComponentActivity() {
                                         if (launchIntent != null) {
                                             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                             startActivity(launchIntent)
-                                            Toast.makeText(this@MainActivity, "Apertura Spotify per attivare Connect...", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                getString(com.vibe.core.ui.R.string.spotify_opening_connect),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                             lifecycleScope.launch {
                                                 delay(2500)
                                                 refreshDevicesAndSyncPlayback()
                                             }
                                         } else {
-                                            Toast.makeText(this@MainActivity, "App Spotify non installata", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                getString(com.vibe.core.ui.R.string.spotify_not_installed),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     },
                                     onRefresh = {
@@ -871,7 +887,11 @@ class MainActivity : ComponentActivity() {
                                         lifecycleScope.launch {
                                             val cacheDir = java.io.File(cacheDir, "vibe_audio_cache")
                                             cacheDir.deleteRecursively()
-                                            Toast.makeText(this@MainActivity, "Cache svuotata", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                getString(com.vibe.core.ui.R.string.settings_cache_cleared),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     },
                                     onLogout = {
@@ -917,7 +937,11 @@ class MainActivity : ComponentActivity() {
                                                     ).show()
                                                 }
                                             }.onFailure { err ->
-                                                Toast.makeText(this@MainActivity, "Errore: ${err.message}", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    this@MainActivity,
+                                                    getString(com.vibe.core.ui.R.string.generic_error_format, err.message ?: ""),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                         }
                                     },
@@ -997,7 +1021,7 @@ class MainActivity : ComponentActivity() {
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Close,
-                                                        contentDescription = "Chiudi",
+                                                        contentDescription = stringResource(com.vibe.core.ui.R.string.banner_close),
                                                         tint = MaterialTheme.colorScheme.onErrorContainer,
                                                         modifier = Modifier.size(18.dp)
                                                     )
@@ -1023,7 +1047,10 @@ class MainActivity : ComponentActivity() {
                                                         modifier = Modifier.height(36.dp),
                                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                                                     ) {
-                                                        Text("Apri Spotify", style = MaterialTheme.typography.labelLarge)
+                                                        Text(
+                                                            stringResource(com.vibe.core.ui.R.string.banner_open_spotify),
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
                                                     }
                                                     Spacer(modifier = Modifier.width(8.dp))
                                                 }
@@ -1040,7 +1067,7 @@ class MainActivity : ComponentActivity() {
                                                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                                                 ) {
                                                     Text(
-                                                        "Dispositivi",
+                                                        stringResource(com.vibe.core.ui.R.string.player_devices),
                                                         style = MaterialTheme.typography.labelLarge,
                                                         fontWeight = FontWeight.Bold
                                                     )
@@ -1172,10 +1199,10 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 authManager.handleAuthCallback(data)
                     .onSuccess {
-                        Toast.makeText(this@MainActivity, "Connected to Spotify!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, getString(com.vibe.core.ui.R.string.connected_success), Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { err ->
-                        Toast.makeText(this@MainActivity, "Login error: ${err.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, getString(com.vibe.core.ui.R.string.login_error, err.message ?: ""), Toast.LENGTH_LONG).show()
                     }
             }
         } else if (scheme == "spotify" || host == "open.spotify.com") {

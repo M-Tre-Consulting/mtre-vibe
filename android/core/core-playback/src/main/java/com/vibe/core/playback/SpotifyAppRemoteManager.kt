@@ -16,6 +16,7 @@ import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import com.vibe.core.network.auth.SpotifyAuthConfig
+import com.vibe.core.ui.R as UiR
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,6 +49,7 @@ class SpotifyAppRemoteManager(
 
     companion object {
         private const val TAG = "VIBE_REMOTE"
+        private const val TAG_SDK = "SPOTIFY_SDK_DEBUG"
     }
 
     private var appRemote: SpotifyAppRemote? = null
@@ -73,7 +75,91 @@ class SpotifyAppRemoteManager(
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
     init {
+        try {
+            SpotifyAppRemote.setDebugMode(true)
+            com.spotify.protocol.client.Debug.setLogger(object : com.spotify.protocol.client.Debug.Logger {
+                override fun d(msg: String?, vararg args: Any?) {
+                    val formatted = runCatching { msg?.let { String.format(it, *args) } }.getOrNull() ?: msg ?: ""
+                    Log.d(TAG_SDK, formatted)
+                }
+                override fun d(t: Throwable?, msg: String?, vararg args: Any?) {
+                    val formatted = runCatching { msg?.let { String.format(it, *args) } }.getOrNull() ?: msg ?: ""
+                    Log.d(TAG_SDK, formatted, t)
+                }
+                override fun e(msg: String?, vararg args: Any?) {
+                    val formatted = runCatching { msg?.let { String.format(it, *args) } }.getOrNull() ?: msg ?: ""
+                    Log.e(TAG_SDK, formatted)
+                }
+                override fun e(t: Throwable?, msg: String?, vararg args: Any?) {
+                    val formatted = runCatching { msg?.let { String.format(it, *args) } }.getOrNull() ?: msg ?: ""
+                    Log.e(TAG_SDK, formatted, t)
+                }
+            })
+            Log.i(TAG, "Initialized Spotify App Remote SDK Debug logger (Tag: $TAG_SDK)")
+        } catch (e: Throwable) {
+            Log.w(TAG, "Could not initialize Spotify App Remote debug logger: ${e.message}")
+        }
         startPositionTicker()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun dumpDiagnostics(connectContext: Context, clientId: String, redirectUri: String, showAuthView: Boolean) {
+        val sb = StringBuilder()
+        sb.appendLine("==================== [SPOTIFY APP REMOTE IPC DIAGNOSTICS] ====================")
+        sb.appendLine("Calling Package   : ${context.packageName}")
+        val isActivity = connectContext is android.app.Activity
+        sb.appendLine("Connecting Context: ${connectContext.javaClass.name} (isActivity=$isActivity)")
+        sb.appendLine("Configured Client ID  : $clientId")
+        sb.appendLine("Configured Redirect URI: $redirectUri")
+        sb.appendLine("showAuthView      : $showAuthView")
+
+        // Signing signatures (SHA-1 / SHA-256)
+        try {
+            val pm = context.packageManager
+            val packageName = context.packageName
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val signingInfo = pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES).signingInfo
+                if (signingInfo != null) {
+                    if (signingInfo.hasMultipleSigners()) signingInfo.apkContentsSigners else signingInfo.signingCertificateHistory
+                } else null
+            } else {
+                pm.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
+            }
+
+            if (signatures != null && signatures.isNotEmpty()) {
+                for ((idx, sig) in signatures.withIndex()) {
+                    val bytes = sig.toByteArray()
+                    val sha1 = java.security.MessageDigest.getInstance("SHA-1").digest(bytes)
+                        .joinToString(":") { "%02X".format(it) }
+                    val sha256 = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+                        .joinToString(":") { "%02X".format(it) }
+                    sb.appendLine("Certificate #$idx:")
+                    sb.appendLine("  SHA-1   : $sha1")
+                    sb.appendLine("  SHA-256 : $sha256")
+                }
+            } else {
+                sb.appendLine("Signing Certificates: none found")
+            }
+        } catch (e: Throwable) {
+            sb.appendLine("Error reading signatures: ${e.message}")
+        }
+
+        // Spotify App package details
+        try {
+            val pm = context.packageManager
+            val spotifyPkg = pm.getPackageInfo("com.spotify.music", 0)
+            sb.appendLine("Spotify App (com.spotify.music): INSTALLED")
+            sb.appendLine("  Version Name: ${spotifyPkg.versionName}")
+            val vCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) spotifyPkg.longVersionCode else spotifyPkg.versionCode.toLong()
+            sb.appendLine("  Version Code: $vCode")
+        } catch (e: Throwable) {
+            sb.appendLine("Spotify App (com.spotify.music): NOT INSTALLED (${e.message})")
+        }
+
+        // Android version details
+        sb.appendLine("Android OS: SDK ${android.os.Build.VERSION.SDK_INT} (Android ${android.os.Build.VERSION.RELEASE}), Model: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        sb.appendLine("================================================================================")
+        Log.i(TAG, sb.toString())
     }
 
     fun isSpotifyInstalled(): Boolean {
@@ -93,7 +179,7 @@ class SpotifyAppRemoteManager(
         }
 
         if (!isSpotifyInstalled()) {
-            val msg = "L'app Spotify ufficiale non è installata su questo dispositivo"
+            val msg = context.getString(UiR.string.spotify_not_installed)
             Log.w(TAG, msg)
             _connectionError.value = msg
             _isConnected.value = false
@@ -102,7 +188,9 @@ class SpotifyAppRemoteManager(
 
         val clientId = runCatching { clientIdProvider() }.getOrDefault(SpotifyAuthConfig.DEFAULT_CLIENT_ID)
         val connectContext = activityRef?.get() ?: context
-        Log.i(TAG, "Connecting to Spotify App Remote with ${connectContext.javaClass.simpleName} (ClientId: $clientId, RedirectURI: $redirectUri, AuthView: $showAuthView)...")
+
+        dumpDiagnostics(connectContext, clientId, redirectUri, showAuthView)
+        Log.i(TAG, "Connecting to Spotify App Remote via IPC with ${connectContext.javaClass.simpleName}...")
 
         val result = withTimeoutOrNull(8000L) {
             suspendCancellableCoroutine<Boolean> { cont ->
@@ -113,7 +201,10 @@ class SpotifyAppRemoteManager(
 
                 SpotifyAppRemote.connect(connectContext, connectionParams, object : Connector.ConnectionListener {
                     override fun onConnected(remote: SpotifyAppRemote) {
-                        Log.i(TAG, ">>> SUCCESS: Connected to Spotify App Remote via IPC! <<<")
+                        Log.i(TAG, "================================================================================")
+                        Log.i(TAG, ">>> [VIBE_REMOTE] IPC CONNECTION ESTABLISHED SUCCESSFULLY! <<<")
+                        Log.i(TAG, "AppRemote isConnected: ${remote.isConnected}")
+                        Log.i(TAG, "================================================================================")
                         appRemote = remote
                         _isConnected.value = true
                         _connectionError.value = null
@@ -123,7 +214,57 @@ class SpotifyAppRemoteManager(
 
                     override fun onFailure(throwable: Throwable) {
                         val errMsg = throwable.message ?: throwable.javaClass.simpleName
-                        Log.e(TAG, "Spotify App Remote connection failed: $errMsg", throwable)
+                        val throwableName = throwable.javaClass.name
+
+                        val sb = StringBuilder()
+                        sb.appendLine("==================== [SPOTIFY APP REMOTE IPC ERROR] ====================")
+                        sb.appendLine("Exception Type: $throwableName")
+                        sb.appendLine("Error Message : $errMsg")
+
+                        val isAuthException = throwable is com.spotify.android.appremote.api.error.UserNotAuthorizedException ||
+                            throwableName.contains("UserNotAuthorized", ignoreCase = true) ||
+                            errMsg.contains("Explicit user authorization is required", ignoreCase = true)
+
+                        if (isAuthException) {
+                            sb.appendLine("------------------------------------------------------------------------")
+                            sb.appendLine("DIAGNOSIS: UserNotAuthorizedException / Authorization Required")
+                            sb.appendLine("Spotify's bound service rejected the IPC handshake.")
+                            sb.appendLine("Root causes & Fixes:")
+                            sb.appendLine("1. SHA-1 & PACKAGE MISMATCH in Spotify Developer Dashboard:")
+                            sb.appendLine("   Your current package is '${context.packageName}'.")
+                            sb.appendLine("   Make sure the Spotify Developer Dashboard (https://developer.spotify.com/dashboard)")
+                            sb.appendLine("   has an Android package entry for '${context.packageName}' with the exact SHA-1 printed above.")
+                            sb.appendLine("2. BACKGROUND ACTIVITY RESTRICTIONS (Android 14 / 15):")
+                            sb.appendLine("   If Spotify was in the background, Android may block Spotify from launching")
+                            sb.appendLine("   its authorization modal dialog.")
+                            sb.appendLine("   ACTION: Open the Spotify app first, keep it in recents, then retry connecting in Vibe.")
+                            sb.appendLine("3. DEVELOPER DASHBOARD USER ACCESS:")
+                            sb.appendLine("   If your Spotify app is in Development Mode, the user account must be registered")
+                            sb.appendLine("   under 'Users and Access' in Spotify Developer Dashboard.")
+                            sb.appendLine("------------------------------------------------------------------------")
+                        } else if (throwable is com.spotify.android.appremote.api.error.AuthenticationFailedException ||
+                            throwableName.contains("AuthenticationFailed", ignoreCase = true)) {
+                            sb.appendLine("------------------------------------------------------------------------")
+                            sb.appendLine("DIAGNOSIS: AuthenticationFailedException")
+                            sb.appendLine("The Client ID or Redirect URI does not match what is registered on Spotify Dashboard.")
+                            sb.appendLine("------------------------------------------------------------------------")
+                        } else if (throwable is com.spotify.android.appremote.api.error.NotLoggedInException ||
+                            throwableName.contains("NotLoggedIn", ignoreCase = true)) {
+                            sb.appendLine("------------------------------------------------------------------------")
+                            sb.appendLine("DIAGNOSIS: NotLoggedInException")
+                            sb.appendLine("Spotify is installed, but no user is currently logged into the Spotify app.")
+                            sb.appendLine("ACTION: Open Spotify and log into an account.")
+                            sb.appendLine("------------------------------------------------------------------------")
+                        } else if (throwable is com.spotify.android.appremote.api.error.CouldNotFindSpotifyApp ||
+                            throwableName.contains("CouldNotFindSpotifyApp", ignoreCase = true)) {
+                            sb.appendLine("------------------------------------------------------------------------")
+                            sb.appendLine("DIAGNOSIS: CouldNotFindSpotifyApp")
+                            sb.appendLine("The Spotify app is not installed on this device.")
+                            sb.appendLine("------------------------------------------------------------------------")
+                        }
+                        sb.appendLine("========================================================================")
+                        Log.e(TAG, sb.toString(), throwable)
+
                         appRemote = null
                         _isConnected.value = false
                         _connectionError.value = errMsg
@@ -135,7 +276,7 @@ class SpotifyAppRemoteManager(
 
         result ?: run {
             Log.w(TAG, "Spotify App Remote connection timed out after 8s.")
-            _connectionError.value = "Timeout connessione a Spotify"
+            _connectionError.value = context.getString(UiR.string.playback_error_timeout)
             false
         }
     }
@@ -246,17 +387,17 @@ class SpotifyAppRemoteManager(
         if (appRemote?.isConnected != true) {
             val ok = connect()
             if (!ok) {
-                val err = _connectionError.value ?: "Impossibile connettersi all'app Spotify via IPC"
+                val err = _connectionError.value ?: context.getString(UiR.string.playback_error_ipc_unauthorized)
                 Log.e(TAG, "Cannot play track: Spotify App Remote connection failed ($err).")
                 _playbackState.update { it.copy(isPlaying = false, isBuffering = false) }
-                _errorEvents.emit("Connessione Spotify non riuscita: $err")
+                _errorEvents.emit(err)
                 return Result.failure(IllegalStateException(err))
             }
         }
 
         val remote = appRemote
         if (remote == null || !remote.isConnected) {
-            val err = "Spotify App Remote non disponibile o disconnesso"
+            val err = context.getString(UiR.string.playback_error_ipc_unauthorized)
             Log.e(TAG, err)
             _playbackState.update { it.copy(isPlaying = false, isBuffering = false) }
             _errorEvents.emit(err)
@@ -264,13 +405,13 @@ class SpotifyAppRemoteManager(
         }
 
         val targetUri = if (track.uri.startsWith("spotify:track:")) track.uri else "spotify:track:${track.id}"
-        Log.i(TAG, "Executing playerApi.play('$targetUri') for track '${track.name}'")
+        Log.i(TAG, "[IPC CALL] playerApi.play('$targetUri') for '${track.name}'")
 
         val result = withTimeoutOrNull(5000L) {
             suspendCancellableCoroutine<Result<Unit>> { cont ->
                 remote.playerApi.play(targetUri)
                     .setResultCallback {
-                        Log.i(TAG, "playerApi.play succeeded for '${track.name}'")
+                        Log.i(TAG, "[IPC RESULT] playerApi.play SUCCESS for '${track.name}'")
                         _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
                         // Queue next context tracks if available
                         val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(10)
@@ -279,18 +420,22 @@ class SpotifyAppRemoteManager(
                                 delay(500)
                                 nextTracks.forEach { t ->
                                     val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
+                                    Log.d(TAG, "[IPC CALL] playerApi.queue('$nextUri') for '${t.name}'")
                                     remote.playerApi.queue(nextUri)
+                                        .setErrorCallback { qErr ->
+                                            Log.w(TAG, "[IPC RESULT] playerApi.queue ERROR for '${t.name}': ${qErr.message}")
+                                        }
                                 }
                             }
                         }
                         if (cont.isActive) cont.resume(Result.success(Unit))
                     }
                     .setErrorCallback { err ->
-                        val errMsg = err.message ?: "Errore playerApi Spotify"
-                        Log.e(TAG, "playerApi.play error for '${track.name}': $errMsg", err)
+                        val errMsg = err.message ?: "Spotify playerApi error"
+                        Log.e(TAG, "[IPC RESULT] playerApi.play ERROR for '${track.name}': $errMsg", err)
                         _playbackState.update { it.copy(isBuffering = false, isPlaying = false) }
                         scope.launch {
-                            _errorEvents.emit("Errore riproduzione Spotify: $errMsg")
+                            _errorEvents.emit(context.getString(UiR.string.playback_error_spotify_format, errMsg))
                         }
                         if (cont.isActive) cont.resume(Result.failure(Exception(errMsg)))
                     }
@@ -298,8 +443,8 @@ class SpotifyAppRemoteManager(
         }
 
         return result ?: run {
-            val timeoutMsg = "Timeout: Spotify App Remote non risponde al comando play (5s)"
-            Log.e(TAG, timeoutMsg)
+            val timeoutMsg = context.getString(UiR.string.playback_error_timeout)
+            Log.e(TAG, "[IPC TIMEOUT] $timeoutMsg")
             _playbackState.update { it.copy(isBuffering = false, isPlaying = false) }
             _errorEvents.emit(timeoutMsg)
             Result.failure(Exception(timeoutMsg))
@@ -319,48 +464,54 @@ class SpotifyAppRemoteManager(
     }
 
     override fun pause() {
-        Log.d(TAG, "pause() called")
+        Log.i(TAG, "[IPC CALL] playerApi.pause()")
         _playbackState.update { it.copy(isPlaying = false, isPaused = true) }
         appRemote?.playerApi?.pause()
-            ?.setErrorCallback { Log.w(TAG, "pause() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.pause SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.pause ERROR: ${it.message}") }
     }
 
     override fun resume() {
-        Log.d(TAG, "resume() called")
+        Log.i(TAG, "[IPC CALL] playerApi.resume()")
         _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
         appRemote?.playerApi?.resume()
-            ?.setErrorCallback { Log.w(TAG, "resume() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.resume SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.resume ERROR: ${it.message}") }
     }
 
     override fun stop() {
-        Log.d(TAG, "stop() called")
+        Log.i(TAG, "[IPC CALL] stop() -> pause()")
         pause()
     }
 
     override fun seekTo(positionMs: Long) {
-        Log.d(TAG, "seekTo($positionMs) called")
+        Log.i(TAG, "[IPC CALL] playerApi.seekTo($positionMs ms)")
         _playbackState.update { it.copy(positionMs = positionMs) }
         appRemote?.playerApi?.seekTo(positionMs)
-            ?.setErrorCallback { Log.w(TAG, "seekTo() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.seekTo SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.seekTo ERROR: ${it.message}") }
     }
 
     override fun skipToNext() {
-        Log.d(TAG, "skipToNext() called")
+        Log.i(TAG, "[IPC CALL] playerApi.skipNext()")
         appRemote?.playerApi?.skipNext()
-            ?.setErrorCallback { Log.w(TAG, "skipToNext() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipNext SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipNext ERROR: ${it.message}") }
     }
 
     override fun skipToPrevious() {
-        Log.d(TAG, "skipToPrevious() called")
+        Log.i(TAG, "[IPC CALL] playerApi.skipPrevious()")
         appRemote?.playerApi?.skipPrevious()
-            ?.setErrorCallback { Log.w(TAG, "skipToPrevious() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipPrevious SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipPrevious ERROR: ${it.message}") }
     }
 
     override fun setShuffle(enabled: Boolean) {
-        Log.d(TAG, "setShuffle($enabled) called")
+        Log.i(TAG, "[IPC CALL] playerApi.setShuffle($enabled)")
         _playbackState.update { it.copy(shuffleEnabled = enabled) }
         appRemote?.playerApi?.setShuffle(enabled)
-            ?.setErrorCallback { Log.w(TAG, "setShuffle() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setShuffle SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setShuffle ERROR: ${it.message}") }
     }
 
     override fun toggleShuffle() {
@@ -377,7 +528,7 @@ class SpotifyAppRemoteManager(
     }
 
     override fun setRepeatMode(mode: RepeatMode) {
-        Log.d(TAG, "setRepeatMode($mode) called")
+        Log.i(TAG, "[IPC CALL] playerApi.setRepeatMode($mode)")
         _playbackState.update { it.copy(repeatMode = mode) }
         val spotifyRepeat = when (mode) {
             RepeatMode.OFF -> Repeat.OFF
@@ -385,7 +536,8 @@ class SpotifyAppRemoteManager(
             RepeatMode.ALL -> Repeat.ALL
         }
         appRemote?.playerApi?.setRepeat(spotifyRepeat)
-            ?.setErrorCallback { Log.w(TAG, "setRepeat() error: ${it.message}") }
+            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setRepeat SUCCESS") }
+            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setRepeat ERROR: ${it.message}") }
     }
 
     override fun toggleRepeat() {
@@ -404,12 +556,12 @@ class SpotifyAppRemoteManager(
     override fun addToQueue(track: Track) {
         val remote = appRemote
         if (remote != null && remote.isConnected) {
-            Log.i(TAG, "SpotifyAppRemote queue('${track.uri}') for '${track.name}'")
+            Log.i(TAG, "[IPC CALL] playerApi.queue('${track.uri}') for '${track.name}'")
             remote.playerApi.queue(track.uri)
-                .setResultCallback { Log.d(TAG, "Queued '${track.name}' successfully via App Remote") }
-                .setErrorCallback { Log.w(TAG, "Failed to queue '${track.name}': ${it.message}") }
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.queue SUCCESS for '${track.name}'") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.queue ERROR for '${track.name}': ${it.message}") }
         } else {
-            Log.w(TAG, "Cannot addToQueue: SpotifyAppRemote is not connected")
+            Log.w(TAG, "[IPC CALL] Cannot addToQueue: SpotifyAppRemote is not connected")
         }
     }
 

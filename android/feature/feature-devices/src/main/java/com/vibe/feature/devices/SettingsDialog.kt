@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -101,7 +102,7 @@ fun SettingsDialog(
                                 }
                             }
                             Text(
-                                text = "Impostazioni Riproduzione",
+                                text = stringResource(com.vibe.core.ui.R.string.settings_title),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -113,7 +114,7 @@ fun SettingsDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Chiudi",
+                                contentDescription = stringResource(com.vibe.core.ui.R.string.banner_close),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -128,9 +129,9 @@ fun SettingsDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Section 1: Engine di Riproduzione
+                        // Section 1: Playback Engine
                         Text(
-                            text = "MOTORE DI RIPRODUZIONE",
+                            text = stringResource(com.vibe.core.ui.R.string.settings_engine_section),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -138,9 +139,9 @@ fun SettingsDialog(
 
                         // 1. Spotify App Remote (Official IPC)
                         PlaybackModeCard(
-                            title = "Spotify App Remote (IPC)",
-                            subtitle = "Connessione diretta all'app Spotify sul telefono via IPC. 100% brani completi, Vorbis 320 kbps senza interruzioni. Comandi integrati in Vibe.",
-                            badgeText = "Consigliata",
+                            title = stringResource(com.vibe.core.ui.R.string.settings_mode_ipc_title),
+                            subtitle = stringResource(com.vibe.core.ui.R.string.settings_mode_ipc_desc),
+                            badgeText = stringResource(com.vibe.core.ui.R.string.settings_badge_recommended),
                             icon = Icons.Default.PhoneAndroid,
                             isSelected = settings.playbackMode == PlaybackMode.SPOTIFY_REMOTE,
                             onClick = {
@@ -150,9 +151,9 @@ fun SettingsDialog(
 
                         // 2. Standalone (ExoPlayer)
                         PlaybackModeCard(
-                            title = "Standalone (ExoPlayer)",
-                            subtitle = "Player nativo ExoPlayer con cache locale. Utile se l'app Spotify non è installata o per estrazione indipendente.",
-                            badgeText = "Alternativa",
+                            title = stringResource(com.vibe.core.ui.R.string.settings_mode_standalone_title),
+                            subtitle = stringResource(com.vibe.core.ui.R.string.settings_mode_standalone_desc),
+                            badgeText = stringResource(com.vibe.core.ui.R.string.settings_badge_alternative),
                             icon = Icons.Default.MusicNote,
                             isSelected = settings.playbackMode == PlaybackMode.STANDALONE,
                             onClick = {
@@ -162,9 +163,9 @@ fun SettingsDialog(
 
                         // 3. Spotify Connect
                         PlaybackModeCard(
-                            title = "Spotify Connect",
-                            subtitle = "Invia la musica direttamente ai tuoi dispositivi Spotify attivi (PC, Smart TV, altoparlanti).",
-                            badgeText = "Remoto",
+                            title = stringResource(com.vibe.core.ui.R.string.settings_mode_connect_title),
+                            subtitle = stringResource(com.vibe.core.ui.R.string.settings_mode_connect_desc),
+                            badgeText = stringResource(com.vibe.core.ui.R.string.settings_badge_remote),
                             icon = Icons.Default.Speaker,
                             isSelected = settings.playbackMode == PlaybackMode.CONNECT,
                             onClick = {
@@ -174,9 +175,9 @@ fun SettingsDialog(
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                        // Section 2: Fallback & Resilienza
+                        // Section 2: Resilience & Fallback
                         Text(
-                            text = "RESILIENZA & FALLBACK",
+                            text = stringResource(com.vibe.core.ui.R.string.settings_resilience_section),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -196,13 +197,13 @@ fun SettingsDialog(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Fallback automatico",
+                                        text = stringResource(com.vibe.core.ui.R.string.settings_auto_fallback_title),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Se il motore selezionato non risponde o fallisce, passa subito al player alternativo.",
+                                        text = stringResource(com.vibe.core.ui.R.string.settings_auto_fallback_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -219,9 +220,9 @@ fun SettingsDialog(
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                        // Section 3: Memoria e Cache
+                        // Section 3: Storage & Cache
                         Text(
-                            text = "MEMORIA & ARCHIVIAZIONE",
+                            text = stringResource(com.vibe.core.ui.R.string.settings_storage_section),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -241,13 +242,13 @@ fun SettingsDialog(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Cache audio locale",
+                                        text = stringResource(com.vibe.core.ui.R.string.settings_audio_cache_title),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "I brani ascoltati vengono memorizzati nella cache LRU per un ascolto istantaneo a zero dati.",
+                                        text = stringResource(com.vibe.core.ui.R.string.settings_audio_cache_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -257,16 +258,16 @@ fun SettingsDialog(
                                     onClick = onClearCache,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Svuota")
+                                    Text(stringResource(com.vibe.core.ui.R.string.settings_clear_cache))
                                 }
                             }
                         }
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                        // Section 4: Account
+                        // Section 4: Spotify Account
                         Text(
-                            text = "ACCOUNT SPOTIFY",
+                            text = stringResource(com.vibe.core.ui.R.string.settings_account_section),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -294,7 +295,7 @@ fun SettingsDialog(
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "Connesso via OAuth PKCE",
+                                        text = stringResource(com.vibe.core.ui.R.string.settings_connected_oauth),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -308,7 +309,7 @@ fun SettingsDialog(
                                     ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Esci")
+                                    Text(stringResource(com.vibe.core.ui.R.string.settings_logout))
                                 }
                             }
                         }

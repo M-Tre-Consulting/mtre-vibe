@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":core:core-model"))
     implementation(project(":core:core-common"))
     implementation(project(":core:core-network"))
+    implementation(project(":core:core-ui"))
 
     // AndroidX Media3 (ExoPlayer)
     implementation(libs.androidx.media3.exoplayer)

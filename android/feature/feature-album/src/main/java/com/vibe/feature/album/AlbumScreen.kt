@@ -116,7 +116,12 @@ fun AlbumScreen(
                         AlbumType.ALBUM -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_album)
                     }
                     Text(
-                        text = "$typeLabel • ${album.releaseDate.take(4)} • ${album.totalTracks} brani",
+                        text = androidx.compose.ui.res.stringResource(
+                            com.vibe.core.ui.R.string.album_info_format,
+                            typeLabel,
+                            album.releaseDate.take(4),
+                            album.totalTracks
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center

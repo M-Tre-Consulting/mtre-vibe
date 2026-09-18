@@ -329,7 +329,7 @@ fun QueueItemRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DragHandle,
-                        contentDescription = "Trascina per riordinare",
+                        contentDescription = stringResource(com.vibe.core.ui.R.string.queue_drag_to_reorder),
                         tint = if (isDragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(22.dp)
                     )

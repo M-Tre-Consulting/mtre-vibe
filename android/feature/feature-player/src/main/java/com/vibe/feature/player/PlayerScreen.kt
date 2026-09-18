@@ -190,7 +190,7 @@ fun MiniPlayerBar(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Ascolto su ${activeDev.name}",
+                                        text = stringResource(com.vibe.core.ui.R.string.devices_listening_on, activeDev.name),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,

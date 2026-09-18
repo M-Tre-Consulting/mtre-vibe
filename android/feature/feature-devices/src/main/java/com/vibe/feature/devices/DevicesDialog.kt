@@ -65,7 +65,7 @@ fun DevicesDialog(
                         IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Aggiorna dispositivi",
+                                contentDescription = stringResource(com.vibe.core.ui.R.string.devices_refresh),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -80,9 +80,9 @@ fun DevicesDialog(
                     .fillMaxWidth()
                     .heightIn(max = 480.dp)
             ) {
-                // SECTION 1: Questo Dispositivo
+                // SECTION 1: This Device
                 Text(
-                    text = "Questo dispositivo (${Build.MODEL})",
+                    text = stringResource(com.vibe.core.ui.R.string.devices_this_device_model, Build.MODEL),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -94,7 +94,7 @@ fun DevicesDialog(
                     DeviceItemRow(
                         device = phoneConnectDevice,
                         isCurrentlyActive = isPhoneConnectActive,
-                        subtitle = "Spotify Connect (App Spotify locale)",
+                        subtitle = stringResource(com.vibe.core.ui.R.string.devices_local_spotify_app),
                         onSelect = { onSelectDevice(phoneConnectDevice) },
                         onVolumeChange = { vol -> onVolumeChange(phoneConnectDevice, vol) }
                     )
@@ -121,13 +121,13 @@ fun DevicesDialog(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "${Build.MODEL} (Player Vibe)",
+                                    text = stringResource(com.vibe.core.ui.R.string.devices_vibe_player_model, Build.MODEL),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = if (isInternalLocalActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = if (isInternalLocalActive) "In riproduzione su questo dispositivo"
-                                    else "Tocca per riprodurre localmente",
+                                    text = if (isInternalLocalActive) stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_playing)
+                                    else stringResource(com.vibe.core.ui.R.string.devices_this_phone_subtitle_tap),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -156,12 +156,12 @@ fun DevicesDialog(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Sveglia Spotify Connect",
+                                        text = stringResource(com.vibe.core.ui.R.string.devices_wake_spotify),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Apri l'app Spotify per renderla visibile come altoparlante Connect",
+                                        text = stringResource(com.vibe.core.ui.R.string.devices_wake_spotify_desc),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -175,9 +175,9 @@ fun DevicesDialog(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // SECTION 2: Altri Dispositivi
+                // SECTION 2: Other Devices
                 Text(
-                    text = "Altri dispositivi Spotify Connect",
+                    text = stringResource(com.vibe.core.ui.R.string.devices_other_connect_devices),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

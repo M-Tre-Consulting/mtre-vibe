@@ -277,7 +277,7 @@ private fun SearchErrorView(message: String, onRetry: () -> Unit) {
         Button(onClick = onRetry) {
             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Retry")
+            Text(stringResource(com.vibe.core.ui.R.string.retry))
         }
     }
 }

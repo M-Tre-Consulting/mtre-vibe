@@ -99,7 +99,7 @@ fun LibraryScreen(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.SpeakerGroup,
-                            contentDescription = "Dispositivi",
+                            contentDescription = stringResource(com.vibe.core.ui.R.string.player_devices),
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(22.dp)
                         )
@@ -115,7 +115,7 @@ fun LibraryScreen(
                     if (!userAvatarUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = userAvatarUrl,
-                            contentDescription = "Profilo",
+                            contentDescription = stringResource(com.vibe.core.ui.R.string.profile),
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(CircleShape),
@@ -125,7 +125,7 @@ fun LibraryScreen(
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
+                                contentDescription = stringResource(com.vibe.core.ui.R.string.settings_title),
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(22.dp)
                             )

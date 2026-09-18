@@ -7,6 +7,7 @@ import com.vibe.core.model.PlaybackMode
 import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import com.vibe.core.ui.R as UiR
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -104,18 +105,18 @@ class RoutingAudioPlayerImpl(
     private fun cleanPlaybackError(raw: String): String {
         if (raw.contains("Explicit user authorization is required", ignoreCase = true) ||
             raw.contains("UserNotAuthorizedException", ignoreCase = true)) {
-            return "IPC Spotify non autorizzato su questo dispositivo. Seleziona un dispositivo o apri Spotify per attivare Connect."
+            return context.getString(UiR.string.playback_error_ipc_unauthorized)
         }
         if (raw.contains("NO_ACTIVE_DEVICE", ignoreCase = true) || raw.contains("No active device", ignoreCase = true)) {
-            return "Nessun dispositivo attivo: apri Spotify sul telefono o PC, oppure selezionalo da Dispositivi."
+            return context.getString(UiR.string.playback_error_no_active_device)
         }
         if (raw.contains("Timeout", ignoreCase = true)) {
-            return "Timeout risposta da Spotify: verifica che l'app Spotify o il dispositivo siano attivi."
+            return context.getString(UiR.string.playback_error_timeout)
         }
         val jsonRegex = Regex("""\{.*"message"\s*:\s*"([^"]+)".*\}""")
         val match = jsonRegex.find(raw)
         if (match != null) {
-            return "Errore Spotify: ${match.groupValues[1]}"
+            return context.getString(UiR.string.playback_error_spotify_format, match.groupValues[1])
         }
         return raw
     }
@@ -131,15 +132,16 @@ class RoutingAudioPlayerImpl(
                     switchToConnect()
                     val result = spotifyConnect.playTrackWithResult(track, contextTracks)
                     if (result.isFailure) {
-                        val errMsg = cleanPlaybackError(result.exceptionOrNull()?.message ?: "Errore Spotify Connect")
+                        val rawErr = result.exceptionOrNull()?.message ?: context.getString(UiR.string.playback_error_connect_format, "Failed")
+                        val errMsg = cleanPlaybackError(rawErr)
                         if (settings.autoFallbackEnabled) {
-                            val msg = "Spotify Connect non risponde ($errMsg). Avvio riproduzione locale..."
+                            val msg = context.getString(UiR.string.playback_fallback_connect_local, errMsg)
                             Log.w(TAG, msg)
                             _errorEvents.emit(msg)
                             switchToExoPlayer()
                             exoPlayer.playTrack(track, contextTracks)
                         } else {
-                            _errorEvents.emit("Spotify Connect: $errMsg")
+                            _errorEvents.emit(context.getString(UiR.string.playback_error_connect_format, errMsg))
                         }
                     }
                 }
@@ -154,7 +156,7 @@ class RoutingAudioPlayerImpl(
                         switchToSpotifyRemote()
                         val result = spotifyRemote.playTrackWithResult(track, contextTracks)
                         if (result.isFailure) {
-                            val rawErr = result.exceptionOrNull()?.message ?: "Spotify App non risponde"
+                            val rawErr = result.exceptionOrNull()?.message ?: "Spotify App"
                             val errMsg = cleanPlaybackError(rawErr)
                             Log.w(TAG, "Spotify App Remote failed: $errMsg")
 
@@ -165,12 +167,12 @@ class RoutingAudioPlayerImpl(
                                 val connectResult = spotifyConnect.playTrackWithResult(track, contextTracks)
                                 if (connectResult.isSuccess) {
                                     val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "Spotify Connect"
-                                    val fallbackMsg = "Riproduzione avviata su $targetName via Spotify Connect."
+                                    val fallbackMsg = context.getString(UiR.string.playback_fallback_started_format, targetName)
                                     Log.i(TAG, fallbackMsg)
                                     _errorEvents.emit(fallbackMsg)
                                 } else {
                                     // 2. If Connect also fails, fallback to ExoPlayer local engine
-                                    val fallbackMsg = "Spotify non disponibile ($errMsg). Avvio riproduzione locale..."
+                                    val fallbackMsg = context.getString(UiR.string.playback_fallback_local, errMsg)
                                     Log.w(TAG, fallbackMsg)
                                     _errorEvents.emit(fallbackMsg)
                                     switchToExoPlayer()
@@ -186,16 +188,16 @@ class RoutingAudioPlayerImpl(
                         val connectResult = spotifyConnect.playTrackWithResult(track, contextTracks)
                         if (connectResult.isSuccess) {
                             val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "PC"
-                            _errorEvents.emit("Riproduzione avviata su $targetName via Spotify Connect.")
+                            _errorEvents.emit(context.getString(UiR.string.playback_fallback_started_format, targetName))
                         } else {
-                            val msg = "App Spotify non installata. Avvio riproduzione locale..."
+                            val msg = context.getString(UiR.string.playback_fallback_not_installed)
                             Log.i(TAG, msg)
                             _errorEvents.emit(msg)
                             switchToExoPlayer()
                             exoPlayer.playTrack(track, contextTracks)
                         }
                     } else {
-                        val msg = "App Spotify non installata su questo dispositivo"
+                        val msg = context.getString(UiR.string.spotify_not_installed)
                         Log.w(TAG, msg)
                         _errorEvents.emit(msg)
                     }

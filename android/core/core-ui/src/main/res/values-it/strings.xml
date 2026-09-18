@@ -147,4 +147,64 @@
     <string name="track_options_view_artist">Visualizza artista</string>
     <string name="track_options_share">Condividi</string>
     <string name="track_swipe_to_queue">Aggiungi alla coda</string>
+
+    <!-- Devices Dialog Additions -->
+    <string name="devices_refresh">Aggiorna dispositivi</string>
+    <string name="devices_this_device_model">Questo dispositivo (%s)</string>
+    <string name="devices_local_spotify_app">Spotify Connect (App Spotify locale)</string>
+    <string name="devices_vibe_player_model">%s (Player Vibe)</string>
+    <string name="devices_wake_spotify">Sveglia Spotify Connect</string>
+    <string name="devices_wake_spotify_desc">Apri l\'app Spotify per renderla visibile come altoparlante Connect</string>
+    <string name="devices_other_connect_devices">Altri dispositivi Spotify Connect</string>
+
+    <!-- Settings Dialog -->
+    <string name="settings_title">Impostazioni Riproduzione</string>
+    <string name="settings_engine_section">MOTORE DI RIPRODUZIONE</string>
+    <string name="settings_mode_ipc_title">Spotify App Remote (IPC)</string>
+    <string name="settings_mode_ipc_desc">Connessione diretta all\'app Spotify sul telefono via IPC. 100% brani completi, Vorbis 320 kbps senza interruzioni. Comandi integrati in Vibe.</string>
+    <string name="settings_badge_recommended">Consigliata</string>
+    <string name="settings_mode_standalone_title">Standalone (ExoPlayer)</string>
+    <string name="settings_mode_standalone_desc">Player nativo ExoPlayer con cache locale. Utile se l\'app Spotify non è installata o per estrazione indipendente.</string>
+    <string name="settings_badge_alternative">Alternativa</string>
+    <string name="settings_mode_connect_title">Spotify Connect</string>
+    <string name="settings_mode_connect_desc">Invia la musica direttamente ai tuoi dispositivi Spotify attivi (PC, Smart TV, altoparlanti).</string>
+    <string name="settings_badge_remote">Remoto</string>
+    <string name="settings_resilience_section">RESILIENZA &amp; FALLBACK</string>
+    <string name="settings_auto_fallback_title">Fallback automatico</string>
+    <string name="settings_auto_fallback_desc">Se il motore selezionato non risponde o fallisce, passa subito al player alternativo.</string>
+    <string name="settings_storage_section">MEMORIA &amp; ARCHIVIAZIONE</string>
+    <string name="settings_audio_cache_title">Cache audio locale</string>
+    <string name="settings_audio_cache_desc">I brani ascoltati vengono memorizzati nella cache LRU per un ascolto istantaneo a zero dati.</string>
+    <string name="settings_clear_cache">Svuota</string>
+    <string name="settings_cache_cleared">Cache svuotata</string>
+    <string name="settings_account_section">ACCOUNT SPOTIFY</string>
+    <string name="settings_connected_oauth">Connesso via OAuth PKCE</string>
+    <string name="settings_logout">Esci</string>
+
+    <!-- Banners, Alerts & Playback Messages -->
+    <string name="banner_open_spotify">Apri Spotify</string>
+    <string name="banner_close">Chiudi</string>
+    <string name="spotify_not_installed">L\'app Spotify non è installata su questo dispositivo</string>
+    <string name="spotify_opening_connect">Apertura Spotify per attivare Connect…</string>
+    <string name="playback_error_ipc_unauthorized">IPC Spotify non autorizzato su questo dispositivo. Seleziona un dispositivo o apri Spotify per attivare Connect.</string>
+    <string name="playback_error_no_active_device">Nessun dispositivo attivo: apri Spotify sul telefono o PC, oppure selezionalo da Dispositivi.</string>
+    <string name="playback_error_timeout">Timeout risposta da Spotify: verifica che l\'app Spotify o il dispositivo siano attivi.</string>
+    <string name="playback_error_connect_format">Errore Spotify Connect: %s</string>
+    <string name="playback_error_spotify_format">Errore Spotify: %s</string>
+    <string name="playback_fallback_started_format">Riproduzione avviata su %s via Spotify Connect.</string>
+    <string name="playback_fallback_local">Spotify non disponibile (%s). Avvio riproduzione locale…</string>
+    <string name="playback_fallback_connect_local">Spotify Connect non risponde (%s). Avvio riproduzione locale…</string>
+    <string name="playback_fallback_not_installed">App Spotify non installata. Avvio riproduzione locale…</string>
+    <string name="connected_to_device_format">Connesso a %s</string>
+    <string name="connected_to_connect_device_format">Connesso a %s via Spotify Connect</string>
+
+    <!-- General / Common UI -->
+    <string name="album_info_format">%1$s • %2$s • %3$d brani</string>
+    <string name="queue_drag_to_reorder">Trascina per riordinare</string>
+    <string name="profile">Profilo</string>
+    <string name="retry">Riprova</string>
+    <string name="library_liked_songs_desc">I brani salvati nella tua libreria</string>
+    <string name="playlist_owner_you">Tu</string>
+    <string name="generic_error_format">Errore: %s</string>
+    <string name="invalid_client_id">Client ID non valido</string>
 </resources>
