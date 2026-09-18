@@ -45,7 +45,8 @@ data class AlbumSimpleDto(
     val images: List<ImageDto> = emptyList(),
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("album_type") val albumType: String? = null,
-    @SerialName("total_tracks") val totalTracks: Int? = null
+    @SerialName("total_tracks") val totalTracks: Int? = null,
+    val artists: List<ArtistSimpleDto> = emptyList()
 )
 
 @Serializable
@@ -194,7 +195,8 @@ fun TrackDto.toDomain(addedAtTimestamp: Long? = null, isLiked: Boolean = false):
                 }
                 it.albumType.equals("compilation", ignoreCase = true) -> AlbumType.COMPILATION
                 else -> AlbumType.ALBUM
-            }
+            },
+            artistName = it.artists.firstOrNull()?.name ?: artists.firstOrNull()?.name
         )
     } ?: AlbumSummary(id = "", name = "Unknown", uri = "")
 

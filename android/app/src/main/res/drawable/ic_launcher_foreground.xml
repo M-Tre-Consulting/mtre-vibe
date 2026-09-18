@@ -2,56 +2,21 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
-    <group
-        android:scaleX="0.68"
-        android:scaleY="0.68"
-        android:pivotX="256"
-        android:pivotY="256">
-        <!-- Scalloped Purple Blob -->
-        <path
-            android:fillColor="#FF4F378B"
-            android:strokeColor="#FFEADDFF"
-            android:strokeWidth="4"
-            android:pathData="M256,20 C340,20 360,55 400,75 C460,105 492,150 492,210 C492,260 470,280 470,320 C470,380 440,410 400,435 C360,460 330,492 256,492 C182,492 152,460 112,435 C72,410 42,380 42,320 C42,280 20,260 20,210 C20,150 52,105 112,75 C152,55 172,20 256,20 Z" />
-        <!-- Floating bubble 1 -->
-        <path
-            android:fillColor="#80D0BCFF"
-            android:pathData="M150,120 A30,30 0 1,0 150.01,120 Z" />
-        <!-- Floating bubble 2 -->
-        <path
-            android:fillColor="#809A82DB"
-            android:pathData="M378,344 A22,22 0 1,0 378.01,344 Z" />
-        <!-- Soundwave Bar 1 -->
-        <path
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="26"
-            android:strokeLineCap="round"
-            android:pathData="M176,210 L176,302" />
-        <!-- Soundwave Bar 2 (Center) -->
-        <path
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="26"
-            android:strokeLineCap="round"
-            android:pathData="M256,164 L256,348" />
-        <!-- Soundwave Bar 3 -->
-        <path
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="26"
-            android:strokeLineCap="round"
-            android:pathData="M336,210 L336,302" />
-        <!-- Dot 1 -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M176,313 A13,13 0 1,0 176.01,313 Z" />
-        <!-- Dot 2 -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M256,359 A13,13 0 1,0 256.01,359 Z" />
-        <!-- Dot 3 -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M336,313 A13,13 0 1,0 336.01,313 Z" />
-    </group>
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M38,39 L38,69"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M54,31 L54,77"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M70,39 L70,69"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
 </vector>

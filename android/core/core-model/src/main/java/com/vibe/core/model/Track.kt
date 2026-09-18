@@ -32,5 +32,6 @@ data class AlbumSummary(
     val uri: String,
     val imageUrl: String? = null,
     val releaseDate: String? = null,
-    val albumType: AlbumType = AlbumType.ALBUM
+    val albumType: AlbumType = AlbumType.ALBUM,
+    val artistName: String? = null
 )

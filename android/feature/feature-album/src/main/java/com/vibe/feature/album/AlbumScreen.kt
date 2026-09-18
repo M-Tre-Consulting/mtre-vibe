@@ -1,6 +1,7 @@
 package com.vibe.feature.album
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -42,6 +44,7 @@ fun AlbumScreen(
     isSmartShuffleActive: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
     onBack: () -> Unit = {},
+    onArtistClick: (String) -> Unit = {},
     onPlayClick: () -> Unit = {},
     onShuffleClick: () -> Unit = {},
     onSmartShuffleClick: () -> Unit = {},
@@ -74,7 +77,8 @@ fun AlbumScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             item {
                 Column(
@@ -109,11 +113,40 @@ fun AlbumScreen(
                         AlbumType.ALBUM -> androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.album_type_album)
                     }
                     Text(
-                        text = "${album.artists.joinToString(", ") { it.name }} • $typeLabel • ${album.releaseDate.take(4)} • ${album.totalTracks} brani",
+                        text = "$typeLabel • ${album.releaseDate.take(4)} • ${album.totalTracks} brani",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+
+                    // Related Artist Pill / Row
+                    if (album.artists.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                                .clickable {
+                                    album.artists.firstOrNull()?.id?.let { onArtistClick(it) }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = album.artists.joinToString(", ") { it.name },
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 

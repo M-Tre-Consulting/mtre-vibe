@@ -7,6 +7,7 @@ import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.SpotifyClientFactory
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.Media3AudioPlayerImpl
+import com.vibe.core.playback.SettingsManager
 import com.vibe.core.playback.VibeAudioPlayer
 import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.koin.androidContext
@@ -53,6 +54,8 @@ val appModule = module {
             baseCacheDir = get<Application>().cacheDir
         )
     }
+
+    single { SettingsManager(context = get()) }
 }
 
 class VibeApplication : Application() {

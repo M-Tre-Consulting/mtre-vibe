@@ -35,7 +35,8 @@ fun HomeScreen(
     playlists: List<Playlist> = emptyList(),
     recentTracks: List<Track> = emptyList(),
     onPlaylistClick: (String) -> Unit = {},
-    onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> }
+    onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
+    onSettingsClick: () -> Unit = {}
 ) {
     var selectedCategory by remember { mutableStateOf(0) }
     val greeting = remember {
@@ -72,7 +73,8 @@ fun HomeScreen(
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(40.dp),
+                    onClick = onSettingsClick
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(

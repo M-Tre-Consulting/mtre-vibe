@@ -48,7 +48,8 @@ class SpotifyApiServiceImpl(
                     name = it.name,
                     uri = it.uri,
                     imageUrl = it.images.firstOrNull()?.url,
-                    releaseDate = it.releaseDate
+                    releaseDate = it.releaseDate,
+                    artistName = it.artists.joinToString(", ") { a -> a.name }
                 )
             } ?: emptyList()
 
@@ -189,7 +190,8 @@ class SpotifyApiServiceImpl(
                         it.albumType.equals("single", true) -> AlbumType.SINGLE
                         it.albumType.equals("compilation", true) -> AlbumType.COMPILATION
                         else -> AlbumType.ALBUM
-                    }
+                    },
+                    artistName = it.artists.joinToString(", ") { a -> a.name }
                 )
             } ?: emptyList()
 
@@ -230,7 +232,8 @@ class SpotifyApiServiceImpl(
                 uri = albumDto?.uri ?: "spotify:album:$id",
                 imageUrl = albumDto?.images?.firstOrNull()?.url,
                 releaseDate = albumDto?.releaseDate,
-                albumType = albumType
+                albumType = albumType,
+                artistName = albumDto?.artists?.joinToString(", ") { it.name }
             )
 
             var tracks = albumDto?.tracks?.items?.map { trackDto ->
@@ -289,7 +292,8 @@ class SpotifyApiServiceImpl(
                         dto.albumType.equals("single", true) -> AlbumType.SINGLE
                         dto.albumType.equals("compilation", true) -> AlbumType.COMPILATION
                         else -> AlbumType.ALBUM
-                    }
+                    },
+                    artistName = dto.artists.joinToString(", ") { it.name }
                 )
             }
         }

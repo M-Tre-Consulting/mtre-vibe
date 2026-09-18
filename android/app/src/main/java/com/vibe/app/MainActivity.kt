@@ -45,6 +45,9 @@ import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.auth.AuthState
 import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
+import com.vibe.core.model.PlaybackMode
+import com.vibe.core.model.VibeSettings
+import com.vibe.core.playback.SettingsManager
 import com.vibe.core.playback.VibeAudioPlayer
 import com.vibe.core.ui.ExpressiveNavItem
 import com.vibe.core.ui.ExpressivePillNavBar
@@ -53,12 +56,15 @@ import com.vibe.core.ui.VibeTheme
 import com.vibe.feature.album.AlbumScreen
 import com.vibe.feature.artist.ArtistScreen
 import com.vibe.feature.devices.DevicesDialog
+import com.vibe.feature.devices.SettingsDialog
 import com.vibe.feature.home.HomeScreen
 import com.vibe.feature.library.LibraryScreen
 import com.vibe.feature.player.FullPlayerScreen
 import com.vibe.feature.player.MiniPlayerBar
 import com.vibe.feature.playlist.PlaylistScreen
 import com.vibe.feature.search.SearchScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -69,6 +75,7 @@ class MainActivity : ComponentActivity() {
     private val apiService: SpotifyApiService by inject()
     private val connectDeviceManager: ConnectDeviceManager by inject()
     private val searchManager: DualSearchManager by inject()
+    private val settingsManager: SettingsManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,10 +91,12 @@ class MainActivity : ComponentActivity() {
             val authState by authManager.authState.collectAsState(initial = AuthState.Loading)
             val playbackState by audioPlayer.playbackState.collectAsState()
             val devices by connectDeviceManager.devices.collectAsState()
+            val vibeSettings by settingsManager.settingsFlow.collectAsState(initial = VibeSettings())
 
             var currentScreen by remember { mutableStateOf("home") }
             var isFullPlayerVisible by remember { mutableStateOf(false) }
             var isDevicesDialogVisible by remember { mutableStateOf(false) }
+            var isSettingsDialogVisible by remember { mutableStateOf(false) }
 
             var activeArtist by remember { mutableStateOf<Artist?>(null) }
             var activeAlbum by remember { mutableStateOf<Album?>(null) }
@@ -276,6 +285,12 @@ class MainActivity : ComponentActivity() {
                                                              isSmartShuffleActive = playbackState.isSmartShuffleActive,
                                                              repeatMode = playbackState.repeatMode,
                                                              onBack = { activeAlbum = null },
+                                                             onArtistClick = { artistId ->
+                                                                 activeAlbum = null
+                                                                 lifecycleScope.launch {
+                                                                     apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                                 }
+                                                             },
                                                              onPlayClick = {
                                                                  if (playbackState.isPlaying) {
                                                                      audioPlayer.pause()
@@ -366,7 +381,8 @@ class MainActivity : ComponentActivity() {
                                                  },
                                                  onTrackClick = { track, tracks ->
                                                      playLocalTrack(track, tracks)
-                                                 }
+                                                 },
+                                                 onSettingsClick = { isSettingsDialogVisible = true }
                                              )
                                              "search" -> SearchScreen(
                                                  searchManager = searchManager,
@@ -393,6 +409,7 @@ class MainActivity : ComponentActivity() {
                                                  playlists = userPlaylists,
                                                  albums = userSavedAlbums,
                                                  likedTracks = userLikedTracks,
+                                                 onSettingsClick = { isSettingsDialogVisible = true },
                                                  onOpenLikedSongs = {
                                                      activePlaylist = Playlist(
                                                          id = "liked_songs",
@@ -450,8 +467,24 @@ class MainActivity : ComponentActivity() {
                                  }
                              }
 
-                            // Full Player Screen Modal
-                            if (isFullPlayerVisible && playbackState.currentTrack != null) {
+                            // Full Player Screen Modal with expressive spring slide animations
+                            AnimatedVisibility(
+                                visible = isFullPlayerVisible && playbackState.currentTrack != null,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(animationSpec = androidx.compose.animation.core.tween(250)),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(animationSpec = androidx.compose.animation.core.tween(200))
+                            ) {
                                 BackHandler { isFullPlayerVisible = false }
                                 Box(
                                     modifier = Modifier
@@ -514,6 +547,36 @@ class MainActivity : ComponentActivity() {
                                     onDismiss = { isDevicesDialogVisible = false }
                                 )
                             }
+
+                            // Settings Dialog
+                            if (isSettingsDialogVisible) {
+                                SettingsDialog(
+                                    settings = vibeSettings,
+                                    onUpdateSettings = { updated ->
+                                        lifecycleScope.launch {
+                                            settingsManager.setPlaybackMode(updated.playbackMode)
+                                            settingsManager.setAutoFallback(updated.autoFallbackEnabled)
+                                            settingsManager.setAudioQuality(updated.audioQuality)
+                                            settingsManager.setLibrespotEnabled(updated.isLibrespotEnabled)
+                                        }
+                                    },
+                                    onClearCache = {
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            val cacheDir = java.io.File(cacheDir, "vibe_audio_cache")
+                                            cacheDir.deleteRecursively()
+                                            cacheDir.mkdirs()
+                                        }
+                                        Toast.makeText(this@MainActivity, "Cache audio svuotata!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            authManager.logout()
+                                            isSettingsDialogVisible = false
+                                        }
+                                    },
+                                    onDismiss = { isSettingsDialogVisible = false }
+                                )
+                            }
                         }
                     }
                 }
@@ -523,20 +586,37 @@ class MainActivity : ComponentActivity() {
 
     private fun playLocalTrack(track: Track, contextTracks: List<Track> = emptyList()) {
         lifecycleScope.launch {
-            try {
-                apiService.pausePlayback()
-            } catch (_: Exception) {}
+            val settings = settingsManager.settingsFlow.first()
+            if (settings.playbackMode == PlaybackMode.CONNECT) {
+                val result = apiService.startPlayback(uris = listOf(track.uri))
+                if (result.isFailure && settings.autoFallbackEnabled) {
+                    audioPlayer.playTrack(track, contextTracks)
+                }
+            } else {
+                try {
+                    apiService.pausePlayback()
+                } catch (_: Exception) {}
+                audioPlayer.playTrack(track, contextTracks)
+            }
         }
-        audioPlayer.playTrack(track, contextTracks)
     }
 
     private fun playLocalCollection(tracks: List<Track>, startIndex: Int) {
         lifecycleScope.launch {
-            try {
-                apiService.pausePlayback()
-            } catch (_: Exception) {}
+            val settings = settingsManager.settingsFlow.first()
+            if (settings.playbackMode == PlaybackMode.CONNECT && tracks.isNotEmpty()) {
+                val uris = tracks.drop(startIndex).map { it.uri }
+                val result = apiService.startPlayback(uris = uris)
+                if (result.isFailure && settings.autoFallbackEnabled) {
+                    audioPlayer.playFilteredCollection(tracks, startIndex)
+                }
+            } else {
+                try {
+                    apiService.pausePlayback()
+                } catch (_: Exception) {}
+                audioPlayer.playFilteredCollection(tracks, startIndex)
+            }
         }
-        audioPlayer.playFilteredCollection(tracks, startIndex)
     }
 
     override fun onStart() {

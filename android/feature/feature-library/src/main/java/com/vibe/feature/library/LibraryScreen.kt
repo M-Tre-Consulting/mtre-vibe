@@ -357,11 +357,13 @@ fun LibraryScreen(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        val albumSubtitle = listOfNotNull(album.artistName?.ifBlank { null }, album.releaseDate?.take(4)).joinToString(" • ")
                                         Text(
-                                            album.releaseDate?.take(4) ?: album.albumType.name,
+                                            albumSubtitle.ifBlank { album.albumType.name },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -418,10 +420,13 @@ fun LibraryScreen(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
+                                            val albumSubtitle = listOfNotNull(album.artistName?.ifBlank { null }, album.releaseDate?.take(4)).joinToString(" • ")
                                             Text(
-                                                album.releaseDate?.take(4) ?: album.albumType.name,
+                                                albumSubtitle.ifBlank { album.albumType.name },
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }

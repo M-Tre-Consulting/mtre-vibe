@@ -165,6 +165,7 @@ dependencies {
 
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
