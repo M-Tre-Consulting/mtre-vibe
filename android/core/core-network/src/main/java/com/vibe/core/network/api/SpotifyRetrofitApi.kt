@@ -83,13 +83,13 @@ interface SpotifyRetrofitApi {
 
     @PUT("v1/me/player")
     suspend fun transferPlayback(
-        @Body body: Map<String, @JvmSuppressWildcards Any>
+        @Body body: TransferPlaybackRequestDto
     ): Response<Unit>
 
     @PUT("v1/me/player/play")
     suspend fun play(
         @Query("device_id") deviceId: String? = null,
-        @Body body: Map<String, @JvmSuppressWildcards Any>? = null
+        @Body body: PlayRequestDto? = null
     ): Response<Unit>
 
     @PUT("v1/me/player/pause")

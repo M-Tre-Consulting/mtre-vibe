@@ -434,6 +434,15 @@ class Media3AudioPlayerImpl(
         Log.i(TAG, "Added track '${track.name}' to local ExoPlayer playlist (size=${currentPlaylist.size})")
     }
 
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val currentIdx = exoPlayer.currentMediaItemIndex
+        val actualFrom = currentIdx + 1 + fromIndex
+        val actualTo = currentIdx + 1 + toIndex
+        if (actualFrom in 0 until exoPlayer.mediaItemCount && actualTo in 0 until exoPlayer.mediaItemCount) {
+            exoPlayer.moveMediaItem(actualFrom, actualTo)
+        }
+    }
+
     override fun restoreSession(lastTrack: Track, positionMs: Long) {
         _playbackState.update {
             it.copy(

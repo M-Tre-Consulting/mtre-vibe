@@ -254,3 +254,23 @@ fun DeviceDto.toDomain(): Device {
         supportsVolume = supportsVolume
     )
 }
+
+@Serializable
+data class PlayOffsetDto(
+    val position: Int? = null,
+    val uri: String? = null
+)
+
+@Serializable
+data class PlayRequestDto(
+    val uris: List<String>? = null,
+    @SerialName("context_uri") val contextUri: String? = null,
+    val offset: PlayOffsetDto? = null,
+    @SerialName("position_ms") val positionMs: Long? = null
+)
+
+@Serializable
+data class TransferPlaybackRequestDto(
+    @SerialName("device_ids") val deviceIds: List<String>,
+    val play: Boolean = true
+)

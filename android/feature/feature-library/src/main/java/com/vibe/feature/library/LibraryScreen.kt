@@ -56,6 +56,7 @@ fun LibraryScreen(
     onAlbumClick: (String) -> Unit = {},
     onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
     onShuffleAll: () -> Unit = {},
+    onDevicesClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
 ) {
     var selectedFilter by remember { mutableStateOf(LibraryFilter.PLAYLISTS) }
@@ -66,7 +67,7 @@ fun LibraryScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // 1. Header: Big Bold "Libreria" + Settings Button / Avatar
+        // 1. Header: Big Bold "Libreria" + Devices Button + Settings Button / Avatar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -81,29 +82,50 @@ fun LibraryScreen(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(42.dp),
-                onClick = onSettingsClick
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!userAvatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = userAvatarUrl,
-                        contentDescription = "Profilo",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(42.dp),
+                    onClick = onDevicesClick
+                ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            imageVector = Icons.Default.SpeakerGroup,
+                            contentDescription = "Dispositivi",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(22.dp)
                         )
+                    }
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(42.dp),
+                    onClick = onSettingsClick
+                ) {
+                    if (!userAvatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = userAvatarUrl,
+                            contentDescription = "Profilo",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
             }

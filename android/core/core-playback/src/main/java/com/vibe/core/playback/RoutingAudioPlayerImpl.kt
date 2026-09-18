@@ -173,6 +173,12 @@ class RoutingAudioPlayerImpl(
             exoPlayer.pause()
             activeEngine = ActiveEngine.SPOTIFY_REMOTE
 
+            scope.launch {
+                if (spotifyRemote.isSpotifyInstalled() && !spotifyRemote.isConnectedFlow.value) {
+                    spotifyRemote.connect(showAuthView = false)
+                }
+            }
+
             if (transferPlayback && prevTrack != null && wasPlaying) {
                 spotifyRemote.playTrack(prevTrack)
             } else {
@@ -318,6 +324,10 @@ class RoutingAudioPlayerImpl(
             ActiveEngine.CONNECT -> spotifyConnect.addToQueue(track)
             ActiveEngine.EXO_PLAYER -> exoPlayer.addToQueue(track)
         }
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        exoPlayer.moveQueueItem(fromIndex, toIndex)
     }
 
     override fun restoreSession(lastTrack: Track, positionMs: Long) {

@@ -142,9 +142,19 @@ class SpotifyConnectPlayerImpl(
 
     override fun resume() {
         scope.launch {
-            Log.d(TAG, "Connect resumePlayback on device: $targetDeviceId")
+            var targetDev = targetDeviceId
+            if (targetDev == null) {
+                val devicesResult = apiService.getAvailableDevices()
+                val devices = devicesResult.getOrNull() ?: emptyList()
+                val activeOrFirst = devices.firstOrNull { it.isActive } ?: devices.firstOrNull()
+                if (activeOrFirst != null) {
+                    targetDev = activeOrFirst.id
+                    targetDeviceId = targetDev
+                }
+            }
+            Log.d(TAG, "Connect resumePlayback on device: $targetDev")
             _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
-            apiService.resumePlayback(deviceId = targetDeviceId)
+            apiService.resumePlayback(deviceId = targetDev)
             delay(200)
             syncRemotePlaybackState()
         }

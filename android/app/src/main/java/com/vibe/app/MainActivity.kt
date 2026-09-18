@@ -37,6 +37,7 @@ import com.vibe.core.connect.ConnectDeviceManager
 import com.vibe.core.model.Album
 import com.vibe.core.model.AlbumSummary
 import com.vibe.core.model.Artist
+import com.vibe.core.model.DeviceType
 import com.vibe.core.model.Lyrics
 import com.vibe.core.model.Playlist
 import com.vibe.core.model.Queue
@@ -59,6 +60,7 @@ import com.vibe.core.playback.VibeAudioPlayer
 import com.vibe.core.ui.ExpressiveNavItem
 import com.vibe.core.ui.ExpressivePillNavBar
 import com.vibe.core.ui.SwipeBackContainer
+import com.vibe.core.ui.SwipeDismissContainer
 import com.vibe.core.ui.VibeTheme
 import com.vibe.feature.album.AlbumScreen
 import com.vibe.feature.artist.ArtistScreen
@@ -438,6 +440,7 @@ class MainActivity : ComponentActivity() {
                                                  onTrackClick = { track, tracks ->
                                                      playLocalTrack(track, tracks)
                                                  },
+                                                 onDevicesClick = { isDevicesDialogVisible = true },
                                                  onSettingsClick = { isSettingsDialogVisible = true }
                                              )
                                              "search" -> SearchScreen(
@@ -466,6 +469,7 @@ class MainActivity : ComponentActivity() {
                                                  albums = userSavedAlbums,
                                                  likedTracks = userLikedTracks,
                                                  userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
+                                                 onDevicesClick = { isDevicesDialogVisible = true },
                                                  onSettingsClick = { isSettingsDialogVisible = true },
                                                  onOpenLikedSongs = {
                                                      activePlaylist = Playlist(
@@ -548,42 +552,44 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .background(MaterialTheme.colorScheme.background)
                                 ) {
-                                    FullPlayerScreen(
-                                        playbackState = playbackState,
-                                        onPlayPause = {
-                                            if (playbackState.isPlaying) audioPlayer.pause()
-                                            else audioPlayer.resume()
-                                        },
-                                        onSkipNext = { audioPlayer.skipToNext() },
-                                        onSkipPrevious = { audioPlayer.skipToPrevious() },
-                                        onSeekTo = { pos -> audioPlayer.seekTo(pos) },
-                                        onClose = { isFullPlayerVisible = false },
-                                        onOpenDevices = { isDevicesDialogVisible = true },
-                                        onOpenQueue = {
-                                            isQueueVisible = true
-                                            lifecycleScope.launch {
-                                                apiService.getUserQueue().onSuccess { q ->
-                                                    currentQueue = q
+                                    SwipeDismissContainer(onDismiss = { isFullPlayerVisible = false }) {
+                                        FullPlayerScreen(
+                                            playbackState = playbackState,
+                                            onPlayPause = {
+                                                if (playbackState.isPlaying) audioPlayer.pause()
+                                                else audioPlayer.resume()
+                                            },
+                                            onSkipNext = { audioPlayer.skipToNext() },
+                                            onSkipPrevious = { audioPlayer.skipToPrevious() },
+                                            onSeekTo = { pos -> audioPlayer.seekTo(pos) },
+                                            onClose = { isFullPlayerVisible = false },
+                                            onOpenDevices = { isDevicesDialogVisible = true },
+                                            onOpenQueue = {
+                                                isQueueVisible = true
+                                                lifecycleScope.launch {
+                                                    apiService.getUserQueue().onSuccess { q ->
+                                                        currentQueue = q
+                                                    }
                                                 }
+                                            },
+                                            onArtistClick = { artistId ->
+                                                isFullPlayerVisible = false
+                                                lifecycleScope.launch {
+                                                    apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                }
+                                            },
+                                            onOpenLyrics = { isLyricsVisible = true },
+                                            onToggleShuffle = { audioPlayer.setShuffle(!playbackState.shuffleEnabled) },
+                                            onToggleRepeat = {
+                                                val next = when (playbackState.repeatMode) {
+                                                    RepeatMode.OFF -> RepeatMode.ALL
+                                                    RepeatMode.ALL -> RepeatMode.ONE
+                                                    RepeatMode.ONE -> RepeatMode.OFF
+                                                }
+                                                audioPlayer.setRepeatMode(next)
                                             }
-                                        },
-                                        onArtistClick = { artistId ->
-                                            isFullPlayerVisible = false
-                                            lifecycleScope.launch {
-                                                apiService.getArtist(artistId).onSuccess { activeArtist = it }
-                                            }
-                                        },
-                                        onOpenLyrics = { isLyricsVisible = true },
-                                        onToggleShuffle = { audioPlayer.setShuffle(!playbackState.shuffleEnabled) },
-                                        onToggleRepeat = {
-                                            val next = when (playbackState.repeatMode) {
-                                                RepeatMode.OFF -> RepeatMode.ALL
-                                                RepeatMode.ALL -> RepeatMode.ONE
-                                                RepeatMode.ONE -> RepeatMode.OFF
-                                            }
-                                            audioPlayer.setRepeatMode(next)
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
 
@@ -661,26 +667,46 @@ class MainActivity : ComponentActivity() {
                                         queue = queueToDisplay,
                                         onClose = { isQueueVisible = false },
                                         onTrackClick = { track ->
+                                            val upcomingList = if (queueToDisplay.userQueue.isNotEmpty()) queueToDisplay.userQueue else queueToDisplay.contextQueue
+                                            val remaining = upcomingList.dropWhile { it.id != track.id }
                                             currentQueue = queueToDisplay.copy(
-                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id }
+                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id },
+                                                contextQueue = queueToDisplay.contextQueue.filterNot { it.id == track.id }
                                             )
-                                            playLocalTrack(track)
+                                            playLocalTrack(track, remaining)
                                         },
                                         onRemoveFromQueue = { track ->
-                                            currentQueue = queueToDisplay.copy(
-                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id }
-                                            )
+                                            if (queueToDisplay.userQueue.isNotEmpty()) {
+                                                currentQueue = queueToDisplay.copy(
+                                                    userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id }
+                                                )
+                                            } else {
+                                                currentQueue = queueToDisplay.copy(
+                                                    contextQueue = queueToDisplay.contextQueue.filterNot { it.id == track.id }
+                                                )
+                                            }
                                         },
                                         onMoveQueueItem = { fromIndex, toIndex ->
-                                            val list = queueToDisplay.userQueue.toMutableList()
-                                            if (fromIndex in list.indices && toIndex in list.indices) {
-                                                val item = list.removeAt(fromIndex)
-                                                list.add(toIndex, item)
-                                                currentQueue = queueToDisplay.copy(userQueue = list)
+                                            if (queueToDisplay.userQueue.isNotEmpty()) {
+                                                val list = queueToDisplay.userQueue.toMutableList()
+                                                if (fromIndex in list.indices && toIndex in list.indices) {
+                                                    val item = list.removeAt(fromIndex)
+                                                    list.add(toIndex, item)
+                                                    currentQueue = queueToDisplay.copy(userQueue = list)
+                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.moveQueueItem(fromIndex, toIndex)
+                                                }
+                                            } else if (queueToDisplay.contextQueue.isNotEmpty()) {
+                                                val list = queueToDisplay.contextQueue.toMutableList()
+                                                if (fromIndex in list.indices && toIndex in list.indices) {
+                                                    val item = list.removeAt(fromIndex)
+                                                    list.add(toIndex, item)
+                                                    currentQueue = queueToDisplay.copy(contextQueue = list)
+                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.moveQueueItem(fromIndex, toIndex)
+                                                }
                                             }
                                         },
                                         onClearQueue = {
-                                            currentQueue = queueToDisplay.copy(userQueue = emptyList())
+                                            currentQueue = queueToDisplay.copy(userQueue = emptyList(), contextQueue = emptyList())
                                         }
                                     )
                                 }
@@ -697,15 +723,22 @@ class MainActivity : ComponentActivity() {
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote(transferPlayback = true)
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
+                                            val phoneDevice = devices.firstOrNull { 
+                                                it.type == DeviceType.SMARTPHONE || it.isLocal || it.name.contains(android.os.Build.MODEL, ignoreCase = true) 
+                                            }
+                                            if (phoneDevice != null) {
+                                                apiService.transferPlayback(phoneDevice.id, play = playbackState.isPlaying)
+                                            }
                                         }
                                     },
                                     onSelectDevice = { dev ->
-                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}, wasActive=${dev.isActive}) -> Switching mode to CONNECT")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
                                         isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id, transferPlayback = true)
+                                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id, transferPlayback = playbackState.isPlaying)
+                                            apiService.transferPlayback(dev.id, play = playbackState.isPlaying)
                                         }
                                     },
                                     onVolumeChange = { dev, vol ->

@@ -143,18 +143,12 @@ fun MiniPlayerBar(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            val firstArtist = targetTrack.artists.firstOrNull()
                             Text(
                                 text = targetTrack.artists.joinToString(", ") { it.name },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable {
-                                    if (firstArtist != null) {
-                                        onArtistClick(firstArtist.id)
-                                    }
-                                }
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -252,6 +246,18 @@ fun FullPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Drag handle pill indicating downward swipe to dismiss
+            Box(
+                modifier = Modifier
+                    .padding(top = 2.dp, bottom = 4.dp)
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
+
             // 1. Top Bar
             Row(
                 modifier = Modifier

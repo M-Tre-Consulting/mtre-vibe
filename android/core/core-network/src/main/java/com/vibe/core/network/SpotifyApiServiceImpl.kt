@@ -2,8 +2,7 @@ package com.vibe.core.network
 
 import com.vibe.core.model.*
 import com.vibe.core.network.api.SpotifyRetrofitApi
-import com.vibe.core.network.model.PlaylistDetailDto
-import com.vibe.core.network.model.toDomain
+import com.vibe.core.network.model.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -563,10 +562,10 @@ class SpotifyApiServiceImpl(
 
     override suspend fun transferPlayback(deviceId: String, play: Boolean): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val body = mapOf("device_ids" to listOf(deviceId), "play" to play)
+            val body = TransferPlaybackRequestDto(deviceIds = listOf(deviceId), play = play)
             val resp = retrofitApi.transferPlayback(body)
             if (!resp.isSuccessful) {
-                throw IOException("Transfer playback error HTTP ${resp.code()}")
+                throw IOException("Transfer playback error HTTP ${resp.code()}: ${resp.errorBody()?.string()}")
             }
         }
     }
@@ -577,13 +576,14 @@ class SpotifyApiServiceImpl(
         deviceId: String?
     ): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val body = mutableMapOf<String, Any>()
-            if (!uris.isNullOrEmpty()) {
-                body["uris"] = uris
+            val body = if (!uris.isNullOrEmpty()) {
+                PlayRequestDto(uris = uris)
             } else if (!contextUri.isNullOrBlank()) {
-                body["context_uri"] = contextUri
+                PlayRequestDto(contextUri = contextUri)
+            } else {
+                PlayRequestDto()
             }
-            val resp = retrofitApi.play(deviceId = deviceId, body = if (body.isNotEmpty()) body else null)
+            val resp = retrofitApi.play(deviceId = deviceId, body = body)
             if (!resp.isSuccessful) {
                 throw IOException("Play error HTTP ${resp.code()}: ${resp.errorBody()?.string()}")
             }
@@ -601,9 +601,9 @@ class SpotifyApiServiceImpl(
 
     override suspend fun resumePlayback(deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val resp = retrofitApi.play(deviceId = deviceId, body = null)
+            val resp = retrofitApi.play(deviceId = deviceId, body = PlayRequestDto())
             if (!resp.isSuccessful) {
-                throw IOException("Resume error HTTP ${resp.code()}")
+                throw IOException("Resume error HTTP ${resp.code()}: ${resp.errorBody()?.string()}")
             }
         }
     }

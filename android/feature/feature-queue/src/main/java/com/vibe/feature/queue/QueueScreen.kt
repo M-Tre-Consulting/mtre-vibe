@@ -1,5 +1,6 @@
 package com.vibe.feature.queue
 
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,19 +8,22 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.vibe.core.model.Queue
 import com.vibe.core.model.Track
@@ -35,6 +39,14 @@ fun QueueScreen(
     onMoveQueueItem: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onClearQueue: () -> Unit = {}
 ) {
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val itemHeightPx = with(density) { 62.dp.toPx() }
+
+    val hasUserQueue = queue.userQueue.isNotEmpty()
+    val upcomingTracks = if (hasUserQueue) queue.userQueue else queue.contextQueue
+
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         // Header
         Row(
@@ -77,7 +89,7 @@ fun QueueScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        if (queue.currentlyPlaying == null && queue.userQueue.isEmpty() && queue.contextQueue.isEmpty() && queue.recentHistory.isEmpty()) {
+        if (queue.currentlyPlaying == null && upcomingTracks.isEmpty() && queue.recentHistory.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -95,8 +107,8 @@ fun QueueScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // User-added queue with interactive reordering and deletion controls
-                if (queue.userQueue.isNotEmpty()) {
+                // Interactive reorderable upcoming queue
+                if (upcomingTracks.isNotEmpty()) {
                     item {
                         Row(
                             modifier = Modifier
@@ -106,7 +118,8 @@ fun QueueScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                stringResource(com.vibe.core.ui.R.string.queue_next),
+                                if (hasUserQueue) stringResource(com.vibe.core.ui.R.string.queue_next)
+                                else stringResource(com.vibe.core.ui.R.string.queue_next_from, queue.contextName ?: ""),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -119,21 +132,52 @@ fun QueueScreen(
                             }
                         }
                     }
-                    itemsIndexed(queue.userQueue, key = { index, track -> "${track.id}_$index" }) { index, track ->
+                    itemsIndexed(upcomingTracks, key = { index, track -> "${track.id}_$index" }) { index, track ->
+                        val isDragging = draggingIndex == index
+                        val dragHandleModifier = Modifier.pointerInput(index, upcomingTracks.size) {
+                            detectDragGestures(
+                                onDragStart = {
+                                    draggingIndex = index
+                                    dragOffsetY = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffsetY += dragAmount.y
+                                    val cur = draggingIndex ?: return@detectDragGestures
+                                    if (dragOffsetY > itemHeightPx * 0.7f && cur < upcomingTracks.size - 1) {
+                                        onMoveQueueItem(cur, cur + 1)
+                                        draggingIndex = cur + 1
+                                        dragOffsetY -= itemHeightPx
+                                    } else if (dragOffsetY < -itemHeightPx * 0.7f && cur > 0) {
+                                        onMoveQueueItem(cur, cur - 1)
+                                        draggingIndex = cur - 1
+                                        dragOffsetY += itemHeightPx
+                                    }
+                                },
+                                onDragEnd = {
+                                    draggingIndex = null
+                                    dragOffsetY = 0f
+                                },
+                                onDragCancel = {
+                                    draggingIndex = null
+                                    dragOffsetY = 0f
+                                }
+                            )
+                        }
+
                         QueueItemRow(
                             track = track,
-                            index = index,
-                            totalCount = queue.userQueue.size,
+                            isDragging = isDragging,
+                            dragOffsetY = dragOffsetY,
                             onClick = { onTrackClick(track) },
-                            onMoveUp = { onMoveQueueItem(index, index - 1) },
-                            onMoveDown = { onMoveQueueItem(index, index + 1) },
-                            onRemove = { onRemoveFromQueue(track) }
+                            onRemove = { onRemoveFromQueue(track) },
+                            dragHandleModifier = dragHandleModifier
                         )
                     }
                 }
 
-                // Context tracks (from current album/playlist)
-                if (queue.contextQueue.isNotEmpty()) {
+                // If userQueue was displayed above, show remaining context tracks below
+                if (hasUserQueue && queue.contextQueue.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -145,12 +189,12 @@ fun QueueScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    items(queue.contextQueue, key = { it.id }) { track ->
+                    items(queue.contextQueue, key = { "context_${it.id}" }) { track ->
                         TrackRow(track = track, onClick = { onTrackClick(track) })
                     }
                 }
 
-                // Recent history (short-song repeats separate)
+                // Recent history
                 if (queue.recentHistory.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -172,18 +216,27 @@ fun QueueScreen(
 @Composable
 fun QueueItemRow(
     track: Track,
-    index: Int,
-    totalCount: Int,
+    isDragging: Boolean,
+    dragOffsetY: Float,
     onClick: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
     onRemove: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dragHandleModifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-        modifier = modifier.fillMaxWidth(),
+        color = if (isDragging) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+        tonalElevation = if (isDragging) 8.dp else 0.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .zIndex(if (isDragging) 10f else 1f)
+            .graphicsLayer {
+                if (isDragging) {
+                    translationY = dragOffsetY
+                    scaleX = 1.02f
+                    scaleY = 1.02f
+                }
+            },
         onClick = onClick
     ) {
         Row(
@@ -242,34 +295,8 @@ fun QueueItemRow(
                 )
             }
 
-            // Controls: Move Up, Move Down, Remove
+            // Controls: Remove button & Drag Handle
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onMoveUp,
-                    enabled = index > 0,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = stringResource(com.vibe.core.ui.R.string.queue_move_up),
-                        tint = if (index > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onMoveDown,
-                    enabled = index < totalCount - 1,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(com.vibe.core.ui.R.string.queue_move_down),
-                        tint = if (index < totalCount - 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 IconButton(
                     onClick = onRemove,
                     modifier = Modifier.size(36.dp)
@@ -277,8 +304,20 @@ fun QueueItemRow(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(com.vibe.core.ui.R.string.queue_remove),
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Box(
+                    modifier = dragHandleModifier.size(36.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "Trascina per riordinare",
+                        tint = if (isDragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
