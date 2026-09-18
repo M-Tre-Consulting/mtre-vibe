@@ -528,9 +528,9 @@ class MainActivity : ComponentActivity() {
                                     devices = devices,
                                     isLocalPlaybackActive = !anyRemoteActive,
                                     onSelectLocalPlayback = {
-                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to STANDALONE")
                                         lifecycleScope.launch {
-                                            apiService.pausePlayback()
+                                            settingsManager.setPlaybackMode(PlaybackMode.STANDALONE)
                                             audioPlayer.resume()
                                             isDevicesDialogVisible = false
                                         }
@@ -628,9 +628,6 @@ class MainActivity : ComponentActivity() {
                 }
             } else {
                 android.util.Log.i("VIBE_PLAYBACK", "[Mode: STANDALONE] Routing track '${track.name}' to on-device ExoPlayer engine...")
-                try {
-                    apiService.pausePlayback()
-                } catch (_: Exception) {}
                 audioPlayer.playTrack(track, contextTracks)
             }
         }
@@ -652,9 +649,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } else {
-                try {
-                    apiService.pausePlayback()
-                } catch (_: Exception) {}
                 audioPlayer.playFilteredCollection(tracks, startIndex)
             }
         }
