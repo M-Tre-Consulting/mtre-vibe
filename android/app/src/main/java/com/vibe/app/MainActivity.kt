@@ -137,15 +137,16 @@ class MainActivity : ComponentActivity() {
             var currentAlertMessage by remember { mutableStateOf<String?>(null) }
 
             val toggleTrackLike: (Track) -> Unit = { track ->
-                val currentlyLiked = userLikedTracks.any { it.id == track.id }
+                val trackCleanId = track.id.substringAfterLast(":")
+                val currentlyLiked = userLikedTracks.any { it.id.substringAfterLast(":") == trackCleanId }
                 val newLiked = !currentlyLiked
                 userLikedTracks = if (newLiked) {
-                    listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id == track.id }
+                    listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id.substringAfterLast(":") == trackCleanId }
                 } else {
-                    userLikedTracks.filterNot { it.id == track.id }
+                    userLikedTracks.filterNot { it.id.substringAfterLast(":") == trackCleanId }
                 }
                 lifecycleScope.launch {
-                    apiService.setLiked(track.id, newLiked).onSuccess {
+                    apiService.setLiked(trackCleanId, newLiked).onSuccess {
                         Toast.makeText(
                             this@MainActivity,
                             if (newLiked) getString(com.vibe.core.ui.R.string.track_options_add_to_favorites)
@@ -154,9 +155,9 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     }.onFailure { err ->
                         userLikedTracks = if (currentlyLiked) {
-                            listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id == track.id }
+                            listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id.substringAfterLast(":") == trackCleanId }
                         } else {
-                            userLikedTracks.filterNot { it.id == track.id }
+                            userLikedTracks.filterNot { it.id.substringAfterLast(":") == trackCleanId }
                         }
                         Toast.makeText(
                             this@MainActivity,
@@ -300,7 +301,10 @@ class MainActivity : ComponentActivity() {
                                             ) {
                                                 MiniPlayerBar(
                                                     playbackState = playbackState,
-                                                    isLiked = playbackState.currentTrack?.let { ct -> userLikedTracks.any { it.id == ct.id } } ?: false,
+                                                    isLiked = playbackState.currentTrack?.let { ct ->
+                                                        val cleanId = ct.id.substringAfterLast(":")
+                                                        userLikedTracks.any { it.id.substringAfterLast(":") == cleanId }
+                                                    } ?: false,
                                                     onPlayPause = {
                                                         if (playbackState.isPlaying) audioPlayer.pause()
                                                         else audioPlayer.resume()
@@ -660,7 +664,10 @@ class MainActivity : ComponentActivity() {
                                     SwipeDismissContainer(onDismiss = { isFullPlayerVisible = false }) {
                                         FullPlayerScreen(
                                             playbackState = playbackState,
-                                            isLiked = playbackState.currentTrack?.let { ct -> userLikedTracks.any { it.id == ct.id } } ?: false,
+                                            isLiked = playbackState.currentTrack?.let { ct ->
+                                                val cleanId = ct.id.substringAfterLast(":")
+                                                userLikedTracks.any { it.id.substringAfterLast(":") == cleanId }
+                                            } ?: false,
                                             onPlayPause = {
                                                 if (playbackState.isPlaying) audioPlayer.pause()
                                                 else audioPlayer.resume()
@@ -919,7 +926,8 @@ class MainActivity : ComponentActivity() {
 
                             // Track Context Options Modal Bottom Sheet
                             selectedTrackForOptions?.let { track ->
-                                val isLiked = userLikedTracks.any { it.id == track.id }
+                                val cleanId = track.id.substringAfterLast(":")
+                                val isLiked = userLikedTracks.any { it.id.substringAfterLast(":") == cleanId }
                                 TrackOptionsBottomSheet(
                                     track = track,
                                     isLiked = isLiked,

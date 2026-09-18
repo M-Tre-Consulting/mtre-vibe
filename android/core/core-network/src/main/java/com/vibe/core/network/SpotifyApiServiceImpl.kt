@@ -375,13 +375,26 @@ class SpotifyApiServiceImpl(
 
     override suspend fun setLiked(trackId: String, isLiked: Boolean): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
+            val cleanId = trackId.substringAfterLast(":")
+            val trackUri = "spotify:track:$cleanId"
             val resp = if (isLiked) {
-                retrofitApi.saveTrack(trackId)
+                retrofitApi.saveToLibrary(trackUri)
             } else {
-                retrofitApi.removeSavedTrack(trackId)
+                retrofitApi.removeFromLibrary(trackUri)
             }
             if (!resp.isSuccessful) {
-                throw IOException("Set liked error HTTP ${resp.code()}")
+                val errBody = resp.errorBody()?.string()
+                android.util.Log.w("VIBE_API", "saveToLibrary failed HTTP ${resp.code()}: $errBody, trying fallback")
+                val fallbackResp = if (isLiked) {
+                    retrofitApi.saveTrack(cleanId)
+                } else {
+                    retrofitApi.removeSavedTrack(cleanId)
+                }
+                if (!fallbackResp.isSuccessful) {
+                    val fallbackErr = fallbackResp.errorBody()?.string()
+                    android.util.Log.e("VIBE_API", "setLiked fallback failed HTTP ${fallbackResp.code()}: $fallbackErr")
+                    throw IOException("Set liked error HTTP ${resp.code()}: $errBody")
+                }
             }
         }
     }

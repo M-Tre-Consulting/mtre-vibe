@@ -26,6 +26,16 @@ interface SpotifyRetrofitApi {
         @Query("offset") offset: Int = 0
     ): Response<PagingResponseDto<SavedTrackItemDto>>
 
+    @PUT("v1/me/library")
+    suspend fun saveToLibrary(
+        @Query("uris") uris: String
+    ): Response<Unit>
+
+    @DELETE("v1/me/library")
+    suspend fun removeFromLibrary(
+        @Query("uris") uris: String
+    ): Response<Unit>
+
     @PUT("v1/me/tracks")
     suspend fun saveTrack(
         @Query("ids") ids: String
