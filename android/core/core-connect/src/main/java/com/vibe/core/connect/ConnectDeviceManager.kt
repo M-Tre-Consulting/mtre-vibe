@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Discovers Spotify Connect devices (librespot, spotifyd, hardware receivers)
+ * Discovers Spotify Connect devices (PCs, smart speakers, hardware receivers, TVs)
  * over mDNS / Android NSD and merges them with Web API devices, deduplicating by device ID.
  */
 class ConnectDeviceManager(

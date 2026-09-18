@@ -1,8 +1,17 @@
 package com.vibe.feature.player
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -77,51 +86,77 @@ fun MiniPlayerBar(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val coverArt = currentTrack.album.imageUrl
-                    if (!coverArt.isNullOrBlank()) {
-                        AsyncImage(
-                            model = coverArt,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Surface(
-                            modifier = Modifier.size(46.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(24.dp))
+                    AnimatedContent(
+                        targetState = currentTrack.album.imageUrl to currentTrack.id,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(300)).togetherWith(
+                                fadeOut(animationSpec = tween(200))
+                            )
+                        },
+                        label = "MiniPlayerArtwork"
+                    ) { (coverArt, _) ->
+                        if (!coverArt.isNullOrBlank()) {
+                            AsyncImage(
+                                model = coverArt,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Surface(
+                                modifier = Modifier.size(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(24.dp))
+                                }
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = currentTrack.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        val firstArtist = currentTrack.artists.firstOrNull()
-                        Text(
-                            text = currentTrack.artists.joinToString(", ") { it.name },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable {
-                                if (firstArtist != null) {
-                                    onArtistClick(firstArtist.id)
+                    AnimatedContent(
+                        targetState = currentTrack,
+                        transitionSpec = {
+                            (slideInVertically(
+                                initialOffsetY = { it / 2 },
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                            ) + fadeIn(animationSpec = tween(250))).togetherWith(
+                                slideOutVertically(
+                                    targetOffsetY = { -it / 2 },
+                                    animationSpec = tween(150)
+                                ) + fadeOut(animationSpec = tween(150))
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        label = "MiniPlayerText"
+                    ) { targetTrack ->
+                        Column {
+                            Text(
+                                text = targetTrack.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val firstArtist = targetTrack.artists.firstOrNull()
+                            Text(
+                                text = targetTrack.artists.joinToString(", ") { it.name },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clickable {
+                                    if (firstArtist != null) {
+                                        onArtistClick(firstArtist.id)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
 
                     Surface(
@@ -291,34 +326,49 @@ fun FullPlayerScreen(
                     .weight(1f, fill = false),
                 contentAlignment = Alignment.Center
             ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .aspectRatio(1f),
-                    shape = RoundedCornerShape(28.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-                ) {
-                    val coverArt = track.album.imageUrl
-                    if (!coverArt.isNullOrBlank()) {
-                        AsyncImage(
-                            model = coverArt,
-                            contentDescription = track.album.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.MusicNote,
-                                contentDescription = null,
-                                modifier = Modifier.size(80.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                AnimatedContent(
+                    targetState = track.album.imageUrl to track.id,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(400)) + scaleIn(
+                            initialScale = 0.90f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
                             )
+                        )).togetherWith(
+                            fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 1.05f)
+                        )
+                    },
+                    label = "FullPlayerArtwork"
+                ) { (coverArt, _) ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .aspectRatio(1f),
+                        shape = RoundedCornerShape(28.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                    ) {
+                        if (!coverArt.isNullOrBlank()) {
+                            AsyncImage(
+                                model = coverArt,
+                                contentDescription = track.album.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(80.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -331,26 +381,43 @@ fun FullPlayerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = track.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = track.artists.joinToString(", ") { it.name },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable {
-                            track.artists.firstOrNull()?.let { onArtistClick(it.id) }
-                        }
-                    )
+                AnimatedContent(
+                    targetState = track,
+                    transitionSpec = {
+                        (slideInVertically(
+                            initialOffsetY = { it / 3 },
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                        ) + fadeIn(animationSpec = tween(300))).togetherWith(
+                            slideOutVertically(
+                                targetOffsetY = { -it / 3 },
+                                animationSpec = tween(200)
+                            ) + fadeOut(animationSpec = tween(200))
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = "FullPlayerTrackInfo"
+                ) { targetTrack ->
+                    Column {
+                        Text(
+                            text = targetTrack.name,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = targetTrack.artists.joinToString(", ") { it.name },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable {
+                                targetTrack.artists.firstOrNull()?.let { onArtistClick(it.id) }
+                            }
+                        )
+                    }
                 }
 
                 Surface(

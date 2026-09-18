@@ -231,5 +231,12 @@ class SpotifyConnectPlayerImpl(
         }
     }
 
+    override fun addToQueue(track: Track) {
+        scope.launch {
+            Log.d(TAG, "Connect addToQueue('${track.name}', uri=${track.uri}) on device: $targetDeviceId")
+            apiService.addToQueue(track.uri, targetDeviceId)
+        }
+    }
+
     override fun restoreSession(lastTrack: Track, positionMs: Long) {}
 }

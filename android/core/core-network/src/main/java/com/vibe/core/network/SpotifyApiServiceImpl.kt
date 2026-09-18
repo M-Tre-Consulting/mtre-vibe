@@ -546,6 +546,15 @@ class SpotifyApiServiceImpl(
         }
     }
 
+    override suspend fun addToQueue(uri: String, deviceId: String?): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.addToQueue(uri = uri, deviceId = deviceId)
+            if (!resp.isSuccessful) {
+                throw IOException("Add to queue error HTTP ${resp.code()}")
+            }
+        }
+    }
+
     override suspend fun getCurrentUserProfile(): Result<com.vibe.core.network.model.UserProfileDto> = withContext(ioDispatcher) {
         runCatching {
             val resp = retrofitApi.getCurrentUser()

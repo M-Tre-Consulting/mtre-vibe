@@ -93,6 +93,13 @@
     <string name="queue_next">Prossimi in coda</string>
     <string name="queue_next_from">Prossimi da: %s</string>
     <string name="queue_history">Ascoltati di recente (Cronologia)</string>
+    <string name="queue_clear">Svuota coda</string>
+    <string name="queue_move_up">Sposta in alto</string>
+    <string name="queue_move_down">Sposta in basso</string>
+    <string name="queue_remove">Rimuovi dalla coda</string>
+    <string name="queue_empty">Nessun brano in coda</string>
+    <string name="queue_add_to_queue">Aggiungi alla coda</string>
+    <string name="queue_added_toast">Aggiunto alla coda</string>
 
     <!-- Lyrics -->
     <string name="lyrics_title">Testo del brano</string>

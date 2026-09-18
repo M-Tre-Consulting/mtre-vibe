@@ -44,6 +44,11 @@ interface VibeAudioPlayer {
     fun setVolume(volume: Float)
 
     /**
+     * Appends a track to the active player queue.
+     */
+    fun addToQueue(track: Track)
+
+    /**
      * Restores the last paused session on startup without auto-playing.
      */
     fun restoreSession(lastTrack: Track, positionMs: Long)

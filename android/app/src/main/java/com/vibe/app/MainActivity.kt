@@ -587,7 +587,26 @@ class MainActivity : ComponentActivity() {
                                         queue = queueToDisplay,
                                         onClose = { isQueueVisible = false },
                                         onTrackClick = { track ->
+                                            currentQueue = queueToDisplay.copy(
+                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id }
+                                            )
                                             playLocalTrack(track)
+                                        },
+                                        onRemoveFromQueue = { track ->
+                                            currentQueue = queueToDisplay.copy(
+                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id }
+                                            )
+                                        },
+                                        onMoveQueueItem = { fromIndex, toIndex ->
+                                            val list = queueToDisplay.userQueue.toMutableList()
+                                            if (fromIndex in list.indices && toIndex in list.indices) {
+                                                val item = list.removeAt(fromIndex)
+                                                list.add(toIndex, item)
+                                                currentQueue = queueToDisplay.copy(userQueue = list)
+                                            }
+                                        },
+                                        onClearQueue = {
+                                            currentQueue = queueToDisplay.copy(userQueue = emptyList())
                                         }
                                     )
                                 }
@@ -682,6 +701,18 @@ class MainActivity : ComponentActivity() {
             val settings = settingsManager.settingsFlow.first()
             android.util.Log.i("VIBE_PLAYBACK", ">>> Play Collection Clicked: ${tracks.size} tracks, startIndex: $startIndex | Mode: ${settings.playbackMode}")
             audioPlayer.playFilteredCollection(tracks, startIndex)
+        }
+    }
+
+    private fun addTrackToQueue(track: Track) {
+        lifecycleScope.launch {
+            android.util.Log.i("VIBE_PLAYBACK", ">>> Add to Queue Clicked: '${track.name}' (URI: ${track.uri})")
+            audioPlayer.addToQueue(track)
+            android.widget.Toast.makeText(
+                this@MainActivity,
+                getString(com.vibe.core.ui.R.string.queue_added_toast) + ": " + track.name,
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

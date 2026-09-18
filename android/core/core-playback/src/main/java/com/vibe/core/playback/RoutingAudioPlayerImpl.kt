@@ -277,6 +277,15 @@ class RoutingAudioPlayerImpl(
         }
     }
 
+    override fun addToQueue(track: Track) {
+        Log.i(TAG, "Forwarding addToQueue('${track.name}') to $activeEngine")
+        when (activeEngine) {
+            ActiveEngine.SPOTIFY_REMOTE -> spotifyRemote.addToQueue(track)
+            ActiveEngine.CONNECT -> spotifyConnect.addToQueue(track)
+            ActiveEngine.EXO_PLAYER -> exoPlayer.addToQueue(track)
+        }
+    }
+
     override fun restoreSession(lastTrack: Track, positionMs: Long) {
         exoPlayer.restoreSession(lastTrack, positionMs)
         spotifyRemote.restoreSession(lastTrack, positionMs)

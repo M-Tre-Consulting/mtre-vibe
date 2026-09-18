@@ -93,6 +93,13 @@
     <string name="queue_next">Next in Queue</string>
     <string name="queue_next_from">Next From: %s</string>
     <string name="queue_history">Recently Played (History)</string>
+    <string name="queue_clear">Clear Queue</string>
+    <string name="queue_move_up">Move Up</string>
+    <string name="queue_move_down">Move Down</string>
+    <string name="queue_remove">Remove from Queue</string>
+    <string name="queue_empty">No tracks in queue</string>
+    <string name="queue_add_to_queue">Add to Queue</string>
+    <string name="queue_added_toast">Added to Queue</string>
 
     <!-- Lyrics -->
     <string name="lyrics_title">Lyrics</string>

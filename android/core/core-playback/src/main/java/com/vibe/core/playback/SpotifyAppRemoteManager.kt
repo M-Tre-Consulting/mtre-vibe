@@ -360,6 +360,18 @@ class SpotifyAppRemoteManager(
         _playbackState.update { it.copy(volume = volume) }
     }
 
+    override fun addToQueue(track: Track) {
+        val remote = appRemote
+        if (remote != null && remote.isConnected) {
+            Log.i(TAG, "SpotifyAppRemote queue('${track.uri}') for '${track.name}'")
+            remote.playerApi.queue(track.uri)
+                .setResultCallback { Log.d(TAG, "Queued '${track.name}' successfully via App Remote") }
+                .setErrorCallback { Log.w(TAG, "Failed to queue '${track.name}': ${it.message}") }
+        } else {
+            Log.w(TAG, "Cannot addToQueue: SpotifyAppRemote is not connected")
+        }
+    }
+
     override fun restoreSession(lastTrack: Track, positionMs: Long) {
         currentPlayingTrack = lastTrack
         _playbackState.update { prev ->

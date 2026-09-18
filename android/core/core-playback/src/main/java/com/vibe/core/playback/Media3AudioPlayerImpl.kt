@@ -427,6 +427,13 @@ class Media3AudioPlayerImpl(
         _playbackState.update { it.copy(volume = clamped) }
     }
 
+    override fun addToQueue(track: Track) {
+        currentPlaylist = currentPlaylist + track
+        val mediaItem = buildMediaItem(track)
+        exoPlayer.addMediaItem(mediaItem)
+        Log.i(TAG, "Added track '${track.name}' to local ExoPlayer playlist (size=${currentPlaylist.size})")
+    }
+
     override fun restoreSession(lastTrack: Track, positionMs: Long) {
         _playbackState.update {
             it.copy(

@@ -38,6 +38,7 @@ interface SpotifyApiService {
     suspend fun setRepeat(repeatMode: String, deviceId: String? = null): Result<Unit>
     suspend fun setVolume(volumePercent: Int, deviceId: String? = null): Result<Unit>
     suspend fun getUserQueue(): Result<Queue>
+    suspend fun addToQueue(uri: String, deviceId: String? = null): Result<Unit>
     suspend fun getCurrentUserProfile(): Result<com.vibe.core.network.model.UserProfileDto>
 }
 
