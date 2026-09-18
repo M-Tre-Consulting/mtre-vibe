@@ -73,11 +73,17 @@ jobs:
         working-directory: android
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding release keystore from GitHub Secret..."
+            echo "$KEYSTORE_BASE64" | base64 -d > "$(pwd)/release.keystore"
+            export KEYSTORE_FILE="$(pwd)/release.keystore"
+          fi
           ./gradlew assembleRelease \
             -PversionName="${{ steps.versioning.outputs.version_name }}" \
             -PversionCode="${{ steps.versioning.outputs.version_code }}" \

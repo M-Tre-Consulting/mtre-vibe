@@ -493,7 +493,7 @@ class MainActivity : ComponentActivity() {
 
                             // Full Player Screen Modal with expressive spring slide animations
                             AnimatedVisibility(
-                                visible = isFullPlayerVisible && playbackState.currentTrack != null,
+                                visible = isFullPlayerVisible,
                                 enter = slideInVertically(
                                     initialOffsetY = { it },
                                     animationSpec = spring(
@@ -601,28 +601,30 @@ class MainActivity : ComponentActivity() {
                                     isLocalPlaybackActive = !anyRemoteActive,
                                     onSelectLocalPlayback = {
                                         android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to SPOTIFY_REMOTE")
+                                        isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
                                             (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote()
                                             audioPlayer.resume()
-                                            isDevicesDialogVisible = false
                                         }
                                     },
                                     onSelectDevice = { dev ->
-                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
+                                        android.util.Log.i("VIBE_CONNECT", "User selected remote device: '${dev.name}' (ID: ${dev.id}, wasActive=${dev.isActive}) -> Switching mode to CONNECT")
+                                        isDevicesDialogVisible = false
                                         lifecycleScope.launch {
                                             settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
                                             (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(dev.id)
-                                            val currentTrack = playbackState.currentTrack
-                                            if (playbackState.isPlaying && currentTrack != null) {
-                                                val res = apiService.startPlayback(uris = listOf(currentTrack.uri), deviceId = dev.id)
-                                                if (res.isFailure) {
-                                                    apiService.transferPlayback(dev.id, play = true)
+                                            if (!dev.isActive) {
+                                                val currentTrack = playbackState.currentTrack
+                                                if (playbackState.isPlaying && currentTrack != null) {
+                                                    val res = apiService.startPlayback(uris = listOf(currentTrack.uri), deviceId = dev.id)
+                                                    if (res.isFailure) {
+                                                        apiService.transferPlayback(dev.id, play = true)
+                                                    }
+                                                } else {
+                                                    apiService.transferPlayback(dev.id, play = false)
                                                 }
-                                            } else {
-                                                apiService.transferPlayback(dev.id, play = false)
                                             }
-                                            isDevicesDialogVisible = false
                                         }
                                     },
                                     onVolumeChange = { dev, vol ->

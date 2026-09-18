@@ -143,13 +143,11 @@ class RoutingAudioPlayerImpl(
         }
         if (activeEngine != ActiveEngine.CONNECT) {
             exoPlayer.pause()
-            spotifyRemote.pause()
             activeEngine = ActiveEngine.CONNECT
             spotifyConnect.startPolling()
             scope.launch {
                 spotifyConnect.syncRemotePlaybackState()
             }
-            _playbackState.value = spotifyConnect.playbackState.value
         }
     }
 

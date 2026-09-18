@@ -178,7 +178,13 @@ fun FullPlayerScreen(
     onToggleRepeat: () -> Unit = {},
     onToggleLike: () -> Unit = {}
 ) {
-    val track = playbackState.currentTrack ?: return
+    var lastKnownTrack by remember { mutableStateOf(playbackState.currentTrack) }
+    LaunchedEffect(playbackState.currentTrack) {
+        if (playbackState.currentTrack != null) {
+            lastKnownTrack = playbackState.currentTrack
+        }
+    }
+    val track = playbackState.currentTrack ?: lastKnownTrack ?: return
     var sliderPosition by remember(playbackState.positionMs) {
         mutableFloatStateOf(playbackState.positionMs.toFloat())
     }
