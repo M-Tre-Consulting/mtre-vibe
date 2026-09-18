@@ -236,6 +236,7 @@ fun TrackDto.toDomain(addedAtTimestamp: Long? = null, isLiked: Boolean = false):
 fun DeviceDto.toDomain(): Device {
     val domainType = when (type.uppercase()) {
         "COMPUTER" -> DeviceType.COMPUTER
+        "TABLET" -> DeviceType.TABLET
         "SMARTPHONE" -> DeviceType.SMARTPHONE
         "SPEAKER" -> DeviceType.SPEAKER
         "AVR" -> DeviceType.AVR

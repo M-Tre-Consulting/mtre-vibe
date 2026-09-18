@@ -27,12 +27,16 @@ import kotlinx.coroutines.launch
  * full player state (current track, duration, position, volume) bidirectionally.
  */
 class SpotifyConnectPlayerImpl(
-    private val apiService: SpotifyApiService,
+    val apiService: SpotifyApiService,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 ) : VibeAudioPlayer {
 
     companion object {
         private const val TAG = "VIBE_CONNECT"
+    }
+
+    suspend fun getAvailableDevices(): List<com.vibe.core.model.Device> {
+        return apiService.getAvailableDevices().getOrNull() ?: emptyList()
     }
 
     private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 5)

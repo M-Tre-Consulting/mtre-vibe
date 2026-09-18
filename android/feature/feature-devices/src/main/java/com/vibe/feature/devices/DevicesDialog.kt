@@ -273,6 +273,7 @@ fun DeviceItemRow(
                 Icon(
                     imageVector = when (device.type) {
                         DeviceType.SMARTPHONE -> Icons.Default.PhoneAndroid
+                        DeviceType.TABLET -> Icons.Default.TabletAndroid
                         DeviceType.COMPUTER -> Icons.Default.Computer
                         else -> Icons.Default.Speaker
                     },

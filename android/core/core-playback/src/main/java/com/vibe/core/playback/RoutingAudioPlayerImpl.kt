@@ -7,9 +7,12 @@ import com.vibe.core.model.PlaybackMode
 import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import com.vibe.core.model.isCurrentDevice
+import com.vibe.core.model.isRemote
 import com.vibe.core.ui.R as UiR
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -209,6 +212,24 @@ class RoutingAudioPlayerImpl(
                     if (spotifyRemote.isSpotifyInstalled()) {
                         Log.i(TAG, "Routing track to Spotify App Remote IPC")
                         switchToSpotifyRemote()
+
+                        // If a remote Connect device (e.g. PC, Speaker) is currently active and playing on the Spotify account,
+                        // transfer active playback to this local device first so Spotify switches output locally.
+                        try {
+                            val activeDev = spotifyConnect.playbackState.value.activeDevice
+                            if (activeDev != null && activeDev.isRemote) {
+                                Log.i(TAG, "Remote device '${activeDev.name}' is currently playing on Spotify. Transferring session to local device for IPC...")
+                                val devs = spotifyConnect.getAvailableDevices()
+                                val localDev = devs.firstOrNull { it.isCurrentDevice(devs) }
+                                if (localDev != null) {
+                                    spotifyConnect.apiService.transferPlayback(localDev.id, play = false)
+                                    delay(250)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Pre-transfer playback to local device notice: ${e.message}")
+                        }
+
                         val result = spotifyRemote.playTrackWithResult(track, emptyList())
                         if (result.isFailure) {
                             val rawErr = result.exceptionOrNull()?.message ?: "Spotify App"
@@ -216,41 +237,24 @@ class RoutingAudioPlayerImpl(
                             Log.w(TAG, "Spotify App Remote failed: $errMsg")
 
                             if (settings.autoFallbackEnabled) {
-                                // 1. Attempt fallback to Spotify Connect (either local phone or remote PC)
-                                Log.i(TAG, "Attempting fallback to Spotify Connect...")
-                                switchToConnect()
-                                val connectResult = spotifyConnect.playTrackWithResult(track, emptyList())
-                                if (connectResult.isSuccess) {
-                                    val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "Spotify Connect"
-                                    val fallbackMsg = context.getString(UiR.string.playback_fallback_started_format, targetName)
-                                    Log.i(TAG, fallbackMsg)
-                                    _errorEvents.emit(fallbackMsg)
-                                } else {
-                                    // 2. If Connect also fails, fallback to ExoPlayer local engine
-                                    val fallbackMsg = context.getString(UiR.string.playback_fallback_local, errMsg)
-                                    Log.w(TAG, fallbackMsg)
-                                    _errorEvents.emit(fallbackMsg)
-                                    switchToExoPlayer()
-                                    exoPlayer.playTrack(track, emptyList())
-                                }
+                                // Fallback directly to ExoPlayer local engine on this device!
+                                // Never fallback to a remote PC/speaker when user chose SPOTIFY_REMOTE local playback!
+                                val fallbackMsg = context.getString(UiR.string.playback_fallback_local, errMsg)
+                                Log.w(TAG, fallbackMsg)
+                                _errorEvents.emit(fallbackMsg)
+                                switchToExoPlayer()
+                                exoPlayer.playTrack(track, emptyList())
                             } else {
                                 _errorEvents.emit("Spotify App Remote: $errMsg")
                             }
                         }
                     } else if (settings.autoFallbackEnabled) {
-                        // Spotify app not installed -> try Connect first, then ExoPlayer
-                        switchToConnect()
-                        val connectResult = spotifyConnect.playTrackWithResult(track, emptyList())
-                        if (connectResult.isSuccess) {
-                            val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "PC"
-                            _errorEvents.emit(context.getString(UiR.string.playback_fallback_started_format, targetName))
-                        } else {
-                            val msg = context.getString(UiR.string.playback_fallback_not_installed)
-                            Log.i(TAG, msg)
-                            _errorEvents.emit(msg)
-                            switchToExoPlayer()
-                            exoPlayer.playTrack(track, emptyList())
-                        }
+                        // Spotify app not installed -> fallback to ExoPlayer
+                        val msg = context.getString(UiR.string.playback_fallback_not_installed)
+                        Log.i(TAG, msg)
+                        _errorEvents.emit(msg)
+                        switchToExoPlayer()
+                        exoPlayer.playTrack(track, emptyList())
                     } else {
                         val msg = context.getString(UiR.string.spotify_not_installed)
                         Log.w(TAG, msg)

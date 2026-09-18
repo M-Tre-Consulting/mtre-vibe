@@ -99,8 +99,24 @@ class MainActivity : ComponentActivity() {
     @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.vibe.core.model.CurrentDeviceInfo.init(this)
         spotifyAppRemoteManager.setActivity(this)
         handleIncomingIntent(intent)
+
+        lifecycleScope.launch {
+            val currentSettings = settingsManager.settingsFlow.first()
+            if (spotifyAppRemoteManager.isSpotifyInstalled() && currentSettings.playbackMode == PlaybackMode.CONNECT) {
+                val routingPlayer = audioPlayer as? RoutingAudioPlayerImpl
+                val targetDevId = routingPlayer?.spotifyConnect?.targetDeviceId
+                val devs = apiService.getAvailableDevices().getOrNull() ?: emptyList()
+                val currentDev = devs.firstOrNull { it.isCurrentDevice(devs) }
+                if (targetDevId == null || (currentDev != null && currentDev.id == targetDevId)) {
+                    android.util.Log.i("VIBE_ROUTING", "Restoring playback mode to SPOTIFY_REMOTE (was set to local CONNECT)")
+                    settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
+                    routingPlayer?.switchToSpotifyRemote()
+                }
+            }
+        }
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -196,12 +212,12 @@ class MainActivity : ComponentActivity() {
                     apiService.getUserSavedAlbums(50, 0).onSuccess { albums ->
                         userSavedAlbums = albums
                     }
-                    refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
+                    refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
 
-                    // Periodic background check to detect remote playback starting on PC/Speaker
+                    // Periodic background check to refresh devices list
                     while (isActive) {
                         delay(8000)
-                        refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
+                        refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
                     }
                 }
             }
@@ -815,28 +831,35 @@ class MainActivity : ComponentActivity() {
                                     activeDeviceId = activeRemoteId,
                                     isRefreshing = isRefreshingDevices,
                                     isSpotifyAppInstalled = isSpotifyInstalled,
-                                    onSelectLocalPlayback = {
-                                        android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device")
-                                        isDevicesDialogVisible = false
-                                        lifecycleScope.launch {
-                                            val phoneConnectDevice = devices.firstOrNull { it.isCurrentDevice(devices) }
-                                            if (phoneConnectDevice != null) {
-                                                settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                                                routingPlayer?.switchToConnect(phoneConnectDevice.id, transferPlayback = playbackState.isPlaying)
-                                                apiService.transferPlayback(phoneConnectDevice.id, play = playbackState.isPlaying)
-                                                Toast.makeText(
-                                                    this@MainActivity,
-                                                    getString(com.vibe.core.ui.R.string.connected_to_connect_device_format, phoneConnectDevice.name),
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            } else {
-                                                settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
-                                                routingPlayer?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
-                                            }
-                                            delay(500)
-                                            refreshDevicesAndSyncPlayback()
-                                        }
-                                    },
+                                     onSelectLocalPlayback = {
+                                         android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device")
+                                         isDevicesDialogVisible = false
+                                         lifecycleScope.launch {
+                                             val phoneConnectDevice = devices.firstOrNull { it.isCurrentDevice(devices) }
+                                             if (isSpotifyInstalled) {
+                                                 settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
+                                                 if (phoneConnectDevice != null && playbackState.isPlaying) {
+                                                     apiService.transferPlayback(phoneConnectDevice.id, play = true)
+                                                 }
+                                                 routingPlayer?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
+                                                 Toast.makeText(
+                                                     this@MainActivity,
+                                                     getString(com.vibe.core.ui.R.string.settings_mode_ipc_title),
+                                                     Toast.LENGTH_SHORT
+                                                 ).show()
+                                             } else {
+                                                 settingsManager.setPlaybackMode(PlaybackMode.STANDALONE)
+                                                 routingPlayer?.switchToExoPlayer(transferPlayback = playbackState.isPlaying)
+                                                 Toast.makeText(
+                                                     this@MainActivity,
+                                                     getString(com.vibe.core.ui.R.string.settings_mode_standalone_title),
+                                                     Toast.LENGTH_SHORT
+                                                 ).show()
+                                             }
+                                             delay(500)
+                                             refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
+                                         }
+                                     },
                                     onSelectDevice = { dev ->
                                         android.util.Log.i("VIBE_CONNECT", "User selected device: '${dev.name}' (ID: ${dev.id}) -> Switching mode to CONNECT")
                                         isDevicesDialogVisible = false
@@ -1106,7 +1129,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive: Boolean = true) {
+    private suspend fun refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive: Boolean = false) {
         try {
             // 1. Fetch available devices from Web API
             val devicesResult = apiService.getAvailableDevices()
@@ -1133,22 +1156,13 @@ class MainActivity : ComponentActivity() {
                 (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyConnect?.targetDeviceId = activeDevice.id
             }
 
-            if (activeDevice != null && state?.isPlaying == true) {
+            val currentSettings = settingsManager.settingsFlow.first()
+            if (currentSettings.playbackMode == PlaybackMode.CONNECT && activeDevice != null && state?.isPlaying == true) {
                 android.util.Log.i(
                     "VIBE_CONNECT",
                     "Active playback device detected: '${activeDevice.name}' (type=${activeDevice.type}, isPlaying=${state.isPlaying})"
                 )
-                if (autoSwitchIfRemoteActive) {
-                    val currentSettings = settingsManager.settingsFlow.first()
-                    if (currentSettings.playbackMode != PlaybackMode.CONNECT) {
-                        android.util.Log.i(
-                            "VIBE_CONNECT",
-                            "Auto-switching playback mode to CONNECT for device '${activeDevice.name}'"
-                        )
-                        settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                    }
-                    (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(activeDevice.id)
-                }
+                (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(activeDevice.id)
             }
         } catch (e: Exception) {
             android.util.Log.e("VIBE_CONNECT", "Error refreshing devices and playback sync", e)
@@ -1159,7 +1173,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         connectDeviceManager.startDiscovery()
         lifecycleScope.launch {
-            refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
+            refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
         }
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()

@@ -292,6 +292,7 @@ class SpotifyAppRemoteManager(
         }
         sub.setErrorCallback { err ->
             Log.w(TAG, "PlayerState subscription error: ${err.message}")
+            _isConnected.value = false
         }
         playerStateSubscription = sub
     }
@@ -385,7 +386,10 @@ class SpotifyAppRemoteManager(
         }
 
         if (appRemote?.isConnected != true) {
-            val ok = connect()
+            var ok = connect(showAuthView = false)
+            if (!ok) {
+                ok = connect(showAuthView = true)
+            }
             if (!ok) {
                 val err = _connectionError.value ?: context.getString(UiR.string.playback_error_ipc_unauthorized)
                 Log.e(TAG, "Cannot play track: Spotify App Remote connection failed ($err).")
@@ -438,6 +442,23 @@ class SpotifyAppRemoteManager(
         }
     }
 
+    private inline fun withConnectedRemote(crossinline block: (SpotifyAppRemote) -> Unit) {
+        val remote = appRemote
+        if (remote != null && remote.isConnected) {
+            block(remote)
+        } else {
+            scope.launch {
+                val ok = connect(showAuthView = false)
+                val newRemote = appRemote
+                if (ok && newRemote != null && newRemote.isConnected) {
+                    block(newRemote)
+                } else {
+                    Log.w(TAG, "Cannot execute player action: Spotify App Remote is not connected.")
+                }
+            }
+        }
+    }
+
     override fun playTrack(track: Track, contextTracks: List<Track>) {
         scope.launch {
             playTrackWithResult(track, contextTracks)
@@ -453,17 +474,21 @@ class SpotifyAppRemoteManager(
     override fun pause() {
         Log.i(TAG, "[IPC CALL] playerApi.pause()")
         _playbackState.update { it.copy(isPlaying = false, isPaused = true) }
-        appRemote?.playerApi?.pause()
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.pause SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.pause ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.pause()
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.pause SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.pause ERROR: ${it.message}") }
+        }
     }
 
     override fun resume() {
         Log.i(TAG, "[IPC CALL] playerApi.resume()")
         _playbackState.update { it.copy(isPlaying = true, isPaused = false) }
-        appRemote?.playerApi?.resume()
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.resume SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.resume ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.resume()
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.resume SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.resume ERROR: ${it.message}") }
+        }
     }
 
     override fun stop() {
@@ -474,31 +499,39 @@ class SpotifyAppRemoteManager(
     override fun seekTo(positionMs: Long) {
         Log.i(TAG, "[IPC CALL] playerApi.seekTo($positionMs ms)")
         _playbackState.update { it.copy(positionMs = positionMs) }
-        appRemote?.playerApi?.seekTo(positionMs)
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.seekTo SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.seekTo ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.seekTo(positionMs)
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.seekTo SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.seekTo ERROR: ${it.message}") }
+        }
     }
 
     override fun skipToNext() {
         Log.i(TAG, "[IPC CALL] playerApi.skipNext()")
-        appRemote?.playerApi?.skipNext()
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipNext SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipNext ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.skipNext()
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipNext SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipNext ERROR: ${it.message}") }
+        }
     }
 
     override fun skipToPrevious() {
         Log.i(TAG, "[IPC CALL] playerApi.skipPrevious()")
-        appRemote?.playerApi?.skipPrevious()
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipPrevious SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipPrevious ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.skipPrevious()
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.skipPrevious SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.skipPrevious ERROR: ${it.message}") }
+        }
     }
 
     override fun setShuffle(enabled: Boolean) {
         Log.i(TAG, "[IPC CALL] playerApi.setShuffle($enabled)")
         _playbackState.update { it.copy(shuffleEnabled = enabled) }
-        appRemote?.playerApi?.setShuffle(enabled)
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setShuffle SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setShuffle ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.setShuffle(enabled)
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setShuffle SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setShuffle ERROR: ${it.message}") }
+        }
     }
 
     override fun toggleShuffle() {
@@ -522,9 +555,11 @@ class SpotifyAppRemoteManager(
             RepeatMode.ONE -> Repeat.ONE
             RepeatMode.ALL -> Repeat.ALL
         }
-        appRemote?.playerApi?.setRepeat(spotifyRepeat)
-            ?.setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setRepeat SUCCESS") }
-            ?.setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setRepeat ERROR: ${it.message}") }
+        withConnectedRemote { remote ->
+            remote.playerApi.setRepeat(spotifyRepeat)
+                .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.setRepeat SUCCESS") }
+                .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.setRepeat ERROR: ${it.message}") }
+        }
     }
 
     override fun toggleRepeat() {
@@ -541,14 +576,11 @@ class SpotifyAppRemoteManager(
     }
 
     override fun addToQueue(track: Track) {
-        val remote = appRemote
-        if (remote != null && remote.isConnected) {
+        withConnectedRemote { remote ->
             Log.i(TAG, "[IPC CALL] playerApi.queue('${track.uri}') for '${track.name}'")
             remote.playerApi.queue(track.uri)
                 .setResultCallback { Log.d(TAG, "[IPC RESULT] playerApi.queue SUCCESS for '${track.name}'") }
                 .setErrorCallback { Log.w(TAG, "[IPC RESULT] playerApi.queue ERROR for '${track.name}': ${it.message}") }
-        } else {
-            Log.w(TAG, "[IPC CALL] Cannot addToQueue: SpotifyAppRemote is not connected")
         }
     }
 

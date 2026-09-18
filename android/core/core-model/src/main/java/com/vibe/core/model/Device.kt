@@ -1,10 +1,13 @@
 package com.vibe.core.model
 
+import android.content.Context
+import android.provider.Settings
 import kotlinx.serialization.Serializable
 
 @Serializable
 enum class DeviceType {
     COMPUTER,
+    TABLET,
     SMARTPHONE,
     SPEAKER,
     CAST_VIDEO,
@@ -14,6 +17,22 @@ enum class DeviceType {
     AUDIO_DONGLE,
     GAME_CONSOLE,
     UNKNOWN
+}
+
+object CurrentDeviceInfo {
+    @Volatile
+    var deviceFriendlyName: String? = null
+
+    fun init(context: Context) {
+        if (deviceFriendlyName == null) {
+            deviceFriendlyName = try {
+                Settings.Global.getString(context.contentResolver, "device_name")
+                    ?: Settings.Secure.getString(context.contentResolver, "bluetooth_name")
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 }
 
 @Serializable
@@ -31,7 +50,18 @@ data class Device(
 )
 
 fun Device.isCurrentDevice(allDevices: List<Device> = emptyList()): Boolean {
-    if (type != DeviceType.SMARTPHONE && type != DeviceType.UNKNOWN) return false
+    if (type != DeviceType.SMARTPHONE && type != DeviceType.TABLET && type != DeviceType.UNKNOWN) return false
+    
+    val friendly = CurrentDeviceInfo.deviceFriendlyName
+    if (!friendly.isNullOrBlank()) {
+        if (name.equals(friendly, ignoreCase = true) ||
+            name.contains(friendly, ignoreCase = true) ||
+            friendly.contains(name, ignoreCase = true)
+        ) {
+            return true
+        }
+    }
+    
     val model = android.os.Build.MODEL
     val device = android.os.Build.DEVICE
     val product = android.os.Build.PRODUCT
@@ -43,8 +73,8 @@ fun Device.isCurrentDevice(allDevices: List<Device> = emptyList()): Boolean {
     ) {
         return true
     }
-    val smartphones = allDevices.filter { it.type == DeviceType.SMARTPHONE }
-    if (smartphones.size == 1 && smartphones.first().id == this.id) {
+    val portableDevices = allDevices.filter { it.type == DeviceType.SMARTPHONE || it.type == DeviceType.TABLET }
+    if (portableDevices.size == 1 && portableDevices.first().id == this.id) {
         return true
     }
     return false
@@ -57,4 +87,5 @@ val Device.isRemote: Boolean
             type == DeviceType.CAST_AUDIO ||
             type == DeviceType.CAST_VIDEO ||
             !isCurrentDevice()
+
 
