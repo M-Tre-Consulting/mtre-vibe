@@ -442,18 +442,44 @@ class Media3AudioPlayerImpl(
     }
 
     override fun addToQueue(track: Track) {
-        currentPlaylist = currentPlaylist + track
+        val insertIndex = (currentTrackIndex + 1).coerceAtMost(currentPlaylist.size)
+        val list = currentPlaylist.toMutableList()
+        list.add(insertIndex, track)
+        currentPlaylist = list
         val mediaItem = buildMediaItem(track)
-        exoPlayer.addMediaItem(mediaItem)
-        Log.i(TAG, "Added track '${track.name}' to local ExoPlayer playlist (size=${currentPlaylist.size})")
+        if (insertIndex in 0..exoPlayer.mediaItemCount) {
+            exoPlayer.addMediaItem(insertIndex, mediaItem)
+        } else {
+            exoPlayer.addMediaItem(mediaItem)
+        }
+        Log.i(TAG, "Added track '${track.name}' to local ExoPlayer playlist at $insertIndex (size=${currentPlaylist.size})")
     }
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
-        val currentIdx = exoPlayer.currentMediaItemIndex
-        val actualFrom = currentIdx + 1 + fromIndex
-        val actualTo = currentIdx + 1 + toIndex
+        val actualFrom = currentTrackIndex + 1 + fromIndex
+        val actualTo = currentTrackIndex + 1 + toIndex
+        if (actualFrom in currentPlaylist.indices && actualTo in currentPlaylist.indices) {
+            val list = currentPlaylist.toMutableList()
+            val item = list.removeAt(actualFrom)
+            list.add(actualTo, item)
+            currentPlaylist = list
+            Log.d(TAG, "Reordered currentPlaylist: moved '$actualFrom' to '$actualTo'")
+        }
         if (actualFrom in 0 until exoPlayer.mediaItemCount && actualTo in 0 until exoPlayer.mediaItemCount) {
             exoPlayer.moveMediaItem(actualFrom, actualTo)
+        }
+    }
+
+    fun removeQueueItem(index: Int) {
+        val actualIdx = currentTrackIndex + 1 + index
+        if (actualIdx in currentPlaylist.indices) {
+            val list = currentPlaylist.toMutableList()
+            val removed = list.removeAt(actualIdx)
+            currentPlaylist = list
+            Log.d(TAG, "Removed '${removed.name}' from currentPlaylist at '$actualIdx'")
+        }
+        if (actualIdx in 0 until exoPlayer.mediaItemCount) {
+            exoPlayer.removeMediaItem(actualIdx)
         }
     }
 

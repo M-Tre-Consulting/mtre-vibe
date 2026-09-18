@@ -45,7 +45,8 @@ class RoutingAudioPlayerImpl(
         EXO_PLAYER
     }
 
-    private var activeEngine: ActiveEngine = ActiveEngine.SPOTIFY_REMOTE
+    var activeEngine: ActiveEngine = ActiveEngine.SPOTIFY_REMOTE
+        private set
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -246,7 +247,9 @@ class RoutingAudioPlayerImpl(
 
         if (activeEngine != ActiveEngine.SPOTIFY_REMOTE) {
             if (activeEngine == ActiveEngine.CONNECT) {
-                spotifyConnect.pause()
+                // Only stop polling. DO NOT call spotifyConnect.pause(),
+                // because sending a Web API pause command to the Spotify account
+                // will pause the local Spotify App Remote playback right as it begins!
                 spotifyConnect.stopPolling()
             }
             exoPlayer.pause()
@@ -407,6 +410,10 @@ class RoutingAudioPlayerImpl(
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
         exoPlayer.moveQueueItem(fromIndex, toIndex)
+    }
+
+    fun removeQueueItem(index: Int) {
+        exoPlayer.removeQueueItem(index)
     }
 
     override fun restoreSession(lastTrack: Track, positionMs: Long) {

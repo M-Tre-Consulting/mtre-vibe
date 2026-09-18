@@ -18,16 +18,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.vibe.core.model.Queue
 import com.vibe.core.model.Track
 import com.vibe.core.ui.TrackRow
+
+data class QueueItemEntry(
+    val stableId: String,
+    val track: Track
+)
 
 @Composable
 fun QueueScreen(
@@ -39,13 +46,38 @@ fun QueueScreen(
     onMoveQueueItem: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onClearQueue: () -> Unit = {}
 ) {
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val itemHeightPx = with(density) { 62.dp.toPx() }
+    var measuredItemHeightPx by remember { mutableFloatStateOf(0f) }
+    val defaultSlotHeightPx = with(density) { 68.dp.toPx() }
+    val slotHeightPx = if (measuredItemHeightPx > 0f) measuredItemHeightPx + with(density) { 8.dp.toPx() } else defaultSlotHeightPx
 
     val hasUserQueue = queue.userQueue.isNotEmpty()
     val upcomingTracks = if (hasUserQueue) queue.userQueue else queue.contextQueue
+
+    // Maintain stable items with unique persistent IDs across drag and drop
+    var localItems by remember { mutableStateOf<List<QueueItemEntry>>(emptyList()) }
+    var draggingItemId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
+    // Sync from upcomingTracks only when not actively dragging
+    LaunchedEffect(upcomingTracks, draggingItemId) {
+        if (draggingItemId == null) {
+            val oldItems = localItems.toMutableList()
+            localItems = upcomingTracks.map { track ->
+                val existingIdx = oldItems.indexOfFirst { it.track.id == track.id }
+                if (existingIdx != -1) {
+                    oldItems.removeAt(existingIdx)
+                } else {
+                    QueueItemEntry(
+                        stableId = "${track.id}_${java.util.UUID.randomUUID()}",
+                        track = track
+                    )
+                }
+            }
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         // Header
@@ -110,11 +142,12 @@ fun QueueScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Interactive reorderable upcoming queue
-                if (upcomingTracks.isNotEmpty()) {
+                if (localItems.isNotEmpty()) {
                     item {
                         Row(
                             modifier = Modifier
@@ -129,7 +162,10 @@ fun QueueScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            TextButton(onClick = onClearQueue) {
+                            TextButton(onClick = {
+                                localItems = emptyList()
+                                onClearQueue()
+                            }) {
                                 Text(
                                     stringResource(com.vibe.core.ui.R.string.queue_clear),
                                     color = MaterialTheme.colorScheme.error,
@@ -138,45 +174,78 @@ fun QueueScreen(
                             }
                         }
                     }
-                    itemsIndexed(upcomingTracks, key = { index, track -> "${track.id}_$index" }) { index, track ->
-                        val isDragging = draggingIndex == index
-                        val dragHandleModifier = Modifier.pointerInput(index, upcomingTracks.size) {
+                    items(localItems, key = { it.stableId }) { entry ->
+                        val isDragging = draggingItemId == entry.stableId
+                        val dragHandleModifier = Modifier.pointerInput(entry.stableId) {
                             detectDragGestures(
                                 onDragStart = {
-                                    draggingIndex = index
+                                    draggingItemId = entry.stableId
                                     dragOffsetY = 0f
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
                                     dragOffsetY += dragAmount.y
-                                    val cur = draggingIndex ?: return@detectDragGestures
-                                    if (dragOffsetY > itemHeightPx * 0.7f && cur < upcomingTracks.size - 1) {
-                                        onMoveQueueItem(cur, cur + 1)
-                                        draggingIndex = cur + 1
-                                        dragOffsetY -= itemHeightPx
-                                    } else if (dragOffsetY < -itemHeightPx * 0.7f && cur > 0) {
-                                        onMoveQueueItem(cur, cur - 1)
-                                        draggingIndex = cur - 1
-                                        dragOffsetY += itemHeightPx
+                                    val currentList = localItems.toMutableList()
+                                    var curIdx = currentList.indexOfFirst { it.stableId == entry.stableId }
+                                    if (curIdx == -1) return@detectDragGestures
+
+                                    var moved = false
+                                    while (dragOffsetY > slotHeightPx * 0.5f && curIdx < currentList.size - 1) {
+                                        val nextIdx = curIdx + 1
+                                        val item = currentList.removeAt(curIdx)
+                                        currentList.add(nextIdx, item)
+                                        onMoveQueueItem(curIdx, nextIdx)
+                                        curIdx = nextIdx
+                                        dragOffsetY -= slotHeightPx
+                                        moved = true
+                                    }
+                                    while (dragOffsetY < -slotHeightPx * 0.5f && curIdx > 0) {
+                                        val prevIdx = curIdx - 1
+                                        val item = currentList.removeAt(curIdx)
+                                        currentList.add(prevIdx, item)
+                                        onMoveQueueItem(curIdx, prevIdx)
+                                        curIdx = prevIdx
+                                        dragOffsetY += slotHeightPx
+                                        moved = true
+                                    }
+                                    if (moved) {
+                                        localItems = currentList
+                                        val visibleInfo = listState.layoutInfo.visibleItemsInfo
+                                        val firstVisible = visibleInfo.firstOrNull()?.index ?: 0
+                                        val lastVisible = visibleInfo.lastOrNull()?.index ?: 0
+                                        if (curIdx >= lastVisible - 1) {
+                                            coroutineScope.launch { listState.animateScrollToItem(curIdx) }
+                                        } else if (curIdx <= firstVisible + 1) {
+                                            coroutineScope.launch { listState.animateScrollToItem(curIdx) }
+                                        }
                                     }
                                 },
                                 onDragEnd = {
-                                    draggingIndex = null
+                                    draggingItemId = null
                                     dragOffsetY = 0f
                                 },
                                 onDragCancel = {
-                                    draggingIndex = null
+                                    draggingItemId = null
                                     dragOffsetY = 0f
                                 }
                             )
                         }
 
                         QueueItemRow(
-                            track = track,
+                            track = entry.track,
                             isDragging = isDragging,
                             dragOffsetY = dragOffsetY,
-                            onClick = { onTrackClick(track) },
-                            onRemove = { onRemoveFromQueue(track) },
+                            onClick = { onTrackClick(entry.track) },
+                            onRemove = {
+                                localItems = localItems.filterNot { it.stableId == entry.stableId }
+                                onRemoveFromQueue(entry.track)
+                            },
+                            onHeightMeasured = { h ->
+                                if (measuredItemHeightPx == 0f && h > 0f) {
+                                    measuredItemHeightPx = h
+                                }
+                            },
+                            modifier = if (isDragging) Modifier else Modifier.animateItem(),
                             dragHandleModifier = dragHandleModifier
                         )
                     }
@@ -235,7 +304,8 @@ fun QueueItemRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
-    dragHandleModifier: Modifier = Modifier
+    dragHandleModifier: Modifier = Modifier,
+    onHeightMeasured: (Float) -> Unit = {}
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -250,6 +320,9 @@ fun QueueItemRow(
                     scaleX = 1.02f
                     scaleY = 1.02f
                 }
+            }
+            .onGloballyPositioned { coordinates ->
+                onHeightMeasured(coordinates.size.height.toFloat())
             },
         onClick = onClick
     ) {

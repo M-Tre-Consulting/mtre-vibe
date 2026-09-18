@@ -413,18 +413,17 @@ class SpotifyAppRemoteManager(
                     .setResultCallback {
                         Log.i(TAG, "[IPC RESULT] playerApi.play SUCCESS for '${track.name}'")
                         _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
-                        // Queue next context tracks if available
-                        val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(10)
+                        // Ensure active playback if Spotify initialized in paused state
+                        remote.playerApi.resume()
+                        // Queue upcoming context tracks sequentially with delay
+                        val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(5)
                         if (nextTracks.isNotEmpty()) {
                             scope.launch {
-                                delay(500)
-                                nextTracks.forEach { t ->
+                                delay(1000)
+                                for (t in nextTracks) {
                                     val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
-                                    Log.d(TAG, "[IPC CALL] playerApi.queue('$nextUri') for '${t.name}'")
                                     remote.playerApi.queue(nextUri)
-                                        .setErrorCallback { qErr ->
-                                            Log.w(TAG, "[IPC RESULT] playerApi.queue ERROR for '${t.name}': ${qErr.message}")
-                                        }
+                                    delay(250)
                                 }
                             }
                         }
