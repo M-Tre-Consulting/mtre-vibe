@@ -37,6 +37,7 @@ import com.vibe.core.model.Playlist
 import com.vibe.core.model.Track
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SearchResult
+import com.vibe.core.ui.TrackRow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -53,10 +54,14 @@ sealed interface SearchUiState {
 fun SearchScreen(
     searchManager: DualSearchManager,
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = false,
+    currentTrackId: String? = null,
     onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
     onArtistClick: (String) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
-    onPlaylistClick: (String) -> Unit = {}
+    onPlaylistClick: (String) -> Unit = {},
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     var query by remember { mutableStateOf("") }
     var selectedCategoryIndex by remember { mutableIntStateOf(0) }
@@ -188,10 +193,14 @@ fun SearchScreen(
                     SearchResultsView(
                         result = state.result,
                         selectedTab = selectedCategoryIndex,
+                        isPlaying = isPlaying,
+                        currentTrackId = currentTrackId,
                         onTrackClick = onTrackClick,
                         onArtistClick = onArtistClick,
                         onAlbumClick = onAlbumClick,
-                        onPlaylistClick = onPlaylistClick
+                        onPlaylistClick = onPlaylistClick,
+                        onSwipeToQueue = onSwipeToQueue,
+                        onTrackOptions = onTrackOptions
                     )
                 }
             }
@@ -277,10 +286,14 @@ private fun SearchErrorView(message: String, onRetry: () -> Unit) {
 private fun SearchResultsView(
     result: SearchResult,
     selectedTab: Int,
+    isPlaying: Boolean = false,
+    currentTrackId: String? = null,
     onTrackClick: (Track, List<Track>) -> Unit,
     onArtistClick: (String) -> Unit,
     onAlbumClick: (String) -> Unit,
-    onPlaylistClick: (String) -> Unit
+    onPlaylistClick: (String) -> Unit,
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -316,9 +329,15 @@ private fun SearchResultsView(
                         )
                     }
                     items(result.tracks.take(5), key = { "all_track_${it.id}" }) { track ->
-                        SearchTrackRow(
+                        val isCurrent = track.id == currentTrackId
+                        TrackRow(
                             track = track,
-                            onClick = { onTrackClick(track, result.tracks) }
+                            isCurrentTrack = isCurrent,
+                            isPlaying = isCurrent && isPlaying,
+                            showArtwork = true,
+                            onClick = { onTrackClick(track, result.tracks) },
+                            onLongClick = { onTrackOptions?.invoke(track) },
+                            onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                         )
                     }
                 }
@@ -387,9 +406,15 @@ private fun SearchResultsView(
             1 -> {
                 // Tab 1: SONGS ("Brani")
                 items(result.tracks, key = { "track_${it.id}" }) { track ->
-                    SearchTrackRow(
+                    val isCurrent = track.id == currentTrackId
+                    TrackRow(
                         track = track,
-                        onClick = { onTrackClick(track, result.tracks) }
+                        isCurrentTrack = isCurrent,
+                        isPlaying = isCurrent && isPlaying,
+                        showArtwork = true,
+                        onClick = { onTrackClick(track, result.tracks) },
+                        onLongClick = { onTrackOptions?.invoke(track) },
+                        onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                     )
                 }
             }
@@ -618,86 +643,6 @@ private fun TopResultCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun SearchTrackRow(
-    track: Track,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val albumArt = track.album.imageUrl
-        if (!albumArt.isNullOrBlank()) {
-            AsyncImage(
-                model = albumArt,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(24.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (track.isExplicit) {
-                    Surface(
-                        shape = RoundedCornerShape(2.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Text(
-                            text = "E",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = track.artists.joinToString(", ") { it.name },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = formatDuration(track.durationMs),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

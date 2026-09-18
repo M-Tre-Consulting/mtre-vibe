@@ -117,6 +117,10 @@
     <string name="devices_spotify_connect">Spotify Connect</string>
     <string name="devices_remote_playing">Playing on Spotify Connect</string>
     <string name="devices_close">Close</string>
+    <string name="devices_searching">Searching for devices…</string>
+    <string name="devices_no_devices">No other Spotify Connect devices detected</string>
+    <string name="devices_no_devices_desc">Make sure Spotify is open on your PC or other devices connected to the same account.</string>
+    <string name="devices_listening_on">Listening on %1$s</string>
 
     <!-- Material 3 Expressive UI additions -->
     <string name="library_filter_tracks">Tracks</string>
@@ -133,4 +137,14 @@
     <string name="player_shuffle">Shuffle</string>
     <string name="player_repeat">Repeat</string>
     <string name="player_favorite">Favorite</string>
+
+    <!-- Track Options Bottom Sheet -->
+    <string name="track_options_play_now">Play now</string>
+    <string name="track_options_add_to_queue">Add to queue</string>
+    <string name="track_options_add_to_favorites">Add to Liked Songs</string>
+    <string name="track_options_remove_from_favorites">Remove from Liked Songs</string>
+    <string name="track_options_view_album">View album</string>
+    <string name="track_options_view_artist">View artist</string>
+    <string name="track_options_share">Share</string>
+    <string name="track_swipe_to_queue">Add to queue</string>
 </resources>

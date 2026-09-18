@@ -32,8 +32,9 @@ object TrackAudioResolver {
         .build()
 
     private val SPOTIFY_PREVIEW_REGEX = Pattern.compile("https://p\\.scdn\\.co/mp3-preview/[a-f0-9]+")
-    private val FEAT_REGEX = Pattern.compile("\\s*[({\\[](feat\\.|ft\\.|with).*?[)\\]}]", Pattern.CASE_INSENSITIVE)
-    private val REMASTER_REGEX = Pattern.compile("\\s*-\\s*\\d{4}\\s*-?\\s*Remaster.*", Pattern.CASE_INSENSITIVE)
+    private val FEAT_REGEX = Pattern.compile("\\s*[({\\[](feat\\.|ft\\.|with|featuring).*?[)\\]}]", Pattern.CASE_INSENSITIVE)
+    private val REMASTER_DASH_REGEX = Pattern.compile("\\s*[-–—]\\s*.*?(remaster|live|deluxe|version|mono|stereo|anniversary|edit|mix|bonus).*", Pattern.CASE_INSENSITIVE)
+    private val REMASTER_PAREN_REGEX = Pattern.compile("\\s*[({\\[].*?(remaster|live|deluxe|version|mono|stereo|anniversary|edit|mix|bonus).*?[)\\]}]", Pattern.CASE_INSENSITIVE)
 
     suspend fun resolveAudioUrl(track: Track): String? = withContext(Dispatchers.IO) {
         val cleanTrackId = track.id.removePrefix("spotify:track:").substringAfterLast(":")
@@ -112,8 +113,8 @@ object TrackAudioResolver {
 
     private fun resolveFromDeezer(track: Track): String? {
         val artist = track.artists.firstOrNull()?.name ?: ""
-        // Try raw title first, then cleaned title
-        val titlesToTry = listOf(track.name, cleanTitle(track.name)).distinct()
+        // Try cleaned title first (highest match rate on Deezer), then raw title
+        val titlesToTry = listOf(cleanTitle(track.name), track.name).distinct()
 
         for (title in titlesToTry) {
             try {
@@ -147,7 +148,7 @@ object TrackAudioResolver {
 
     private fun resolveFromITunes(track: Track): String? {
         val artist = track.artists.firstOrNull()?.name ?: ""
-        val titlesToTry = listOf(track.name, cleanTitle(track.name)).distinct()
+        val titlesToTry = listOf(cleanTitle(track.name), track.name).distinct()
 
         for (title in titlesToTry) {
             try {
@@ -181,7 +182,8 @@ object TrackAudioResolver {
 
     private fun cleanTitle(title: String): String {
         var clean = FEAT_REGEX.matcher(title).replaceAll("")
-        clean = REMASTER_REGEX.matcher(clean).replaceAll("")
+        clean = REMASTER_DASH_REGEX.matcher(clean).replaceAll("")
+        clean = REMASTER_PAREN_REGEX.matcher(clean).replaceAll("")
         return clean.trim()
     }
 }

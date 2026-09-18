@@ -43,13 +43,16 @@ fun AlbumScreen(
     isShuffleActive: Boolean = false,
     isSmartShuffleActive: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
+    currentTrackId: String? = null,
     onBack: () -> Unit = {},
     onArtistClick: (String) -> Unit = {},
     onPlayClick: () -> Unit = {},
     onShuffleClick: () -> Unit = {},
     onSmartShuffleClick: () -> Unit = {},
     onRepeatClick: () -> Unit = {},
-    onTrackClick: (Track, Int) -> Unit = { _, _ -> }
+    onTrackClick: (Track, Int) -> Unit = { _, _ -> },
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
@@ -277,9 +280,14 @@ fun AlbumScreen(
             }
 
             itemsIndexed(album.tracks, key = { _, track -> track.id }) { index, track ->
+                val isCurrent = track.id == currentTrackId
                 TrackRow(
                     track = track,
-                    onClick = { onTrackClick(track, index) }
+                    isCurrentTrack = isCurrent,
+                    isPlaying = isCurrent && isPlaying,
+                    onClick = { onTrackClick(track, index) },
+                    onLongClick = { onTrackOptions?.invoke(track) },
+                    onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                 )
             }
         }

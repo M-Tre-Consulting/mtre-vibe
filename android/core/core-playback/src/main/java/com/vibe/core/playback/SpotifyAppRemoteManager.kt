@@ -20,8 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -57,6 +60,9 @@ class SpotifyAppRemoteManager(
 
     private val _connectionError = MutableStateFlow<String?>(null)
     val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
+
+    private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 5)
+    override val errorEvents: Flow<String> = _errorEvents.asSharedFlow()
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -218,11 +224,11 @@ class SpotifyAppRemoteManager(
         }
     }
 
-    override fun playTrack(track: Track, contextTracks: List<Track>) {
+    suspend fun playTrackWithResult(track: Track, contextTracks: List<Track>): Result<Unit> {
         currentPlayingTrack = track
         _playbackState.update { prev ->
             prev.copy(
-                isPlaying = true,
+                isPlaying = false,
                 isPaused = false,
                 isBuffering = true,
                 currentTrack = track,
@@ -231,45 +237,72 @@ class SpotifyAppRemoteManager(
             )
         }
 
-        scope.launch {
-            if (appRemote?.isConnected != true) {
-                val ok = connect()
-                if (!ok) {
-                    Log.e(TAG, "Cannot play track: Spotify App Remote connection failed.")
-                    _playbackState.update { it.copy(isPlaying = false, isBuffering = false) }
-                    return@launch
-                }
-            }
-
-            val remote = appRemote
-            if (remote == null || !remote.isConnected) {
-                Log.e(TAG, "Spotify App Remote is null or not connected.")
+        if (appRemote?.isConnected != true) {
+            val ok = connect()
+            if (!ok) {
+                val err = _connectionError.value ?: "Impossibile connettersi all'app Spotify via IPC"
+                Log.e(TAG, "Cannot play track: Spotify App Remote connection failed ($err).")
                 _playbackState.update { it.copy(isPlaying = false, isBuffering = false) }
-                return@launch
+                _errorEvents.emit("Connessione Spotify non riuscita: $err")
+                return Result.failure(IllegalStateException(err))
             }
+        }
 
-            val targetUri = if (track.uri.startsWith("spotify:track:")) track.uri else "spotify:track:${track.id}"
-            Log.i(TAG, "Executing playerApi.play('$targetUri') for track '${track.name}'")
-            remote.playerApi.play(targetUri)
-                .setResultCallback {
-                    Log.i(TAG, "playerApi.play succeeded for '${track.name}'")
-                    _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
-                    // Queue next context tracks if available
-                    val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(10)
-                    if (nextTracks.isNotEmpty()) {
-                        scope.launch {
-                            delay(500)
-                            nextTracks.forEach { t ->
-                                val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
-                                remote.playerApi.queue(nextUri)
+        val remote = appRemote
+        if (remote == null || !remote.isConnected) {
+            val err = "Spotify App Remote non disponibile o disconnesso"
+            Log.e(TAG, err)
+            _playbackState.update { it.copy(isPlaying = false, isBuffering = false) }
+            _errorEvents.emit(err)
+            return Result.failure(IllegalStateException(err))
+        }
+
+        val targetUri = if (track.uri.startsWith("spotify:track:")) track.uri else "spotify:track:${track.id}"
+        Log.i(TAG, "Executing playerApi.play('$targetUri') for track '${track.name}'")
+
+        val result = withTimeoutOrNull(5000L) {
+            suspendCancellableCoroutine<Result<Unit>> { cont ->
+                remote.playerApi.play(targetUri)
+                    .setResultCallback {
+                        Log.i(TAG, "playerApi.play succeeded for '${track.name}'")
+                        _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
+                        // Queue next context tracks if available
+                        val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(10)
+                        if (nextTracks.isNotEmpty()) {
+                            scope.launch {
+                                delay(500)
+                                nextTracks.forEach { t ->
+                                    val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
+                                    remote.playerApi.queue(nextUri)
+                                }
                             }
                         }
+                        if (cont.isActive) cont.resume(Result.success(Unit))
                     }
-                }
-                .setErrorCallback { err ->
-                    Log.e(TAG, "playerApi.play error for '${track.name}': ${err.message}", err)
-                    _playbackState.update { it.copy(isBuffering = false, isPlaying = false) }
-                }
+                    .setErrorCallback { err ->
+                        val errMsg = err.message ?: "Errore playerApi Spotify"
+                        Log.e(TAG, "playerApi.play error for '${track.name}': $errMsg", err)
+                        _playbackState.update { it.copy(isBuffering = false, isPlaying = false) }
+                        scope.launch {
+                            _errorEvents.emit("Errore riproduzione Spotify: $errMsg")
+                        }
+                        if (cont.isActive) cont.resume(Result.failure(Exception(errMsg)))
+                    }
+            }
+        }
+
+        return result ?: run {
+            val timeoutMsg = "Timeout: Spotify App Remote non risponde al comando play (5s)"
+            Log.e(TAG, timeoutMsg)
+            _playbackState.update { it.copy(isBuffering = false, isPlaying = false) }
+            _errorEvents.emit(timeoutMsg)
+            Result.failure(Exception(timeoutMsg))
+        }
+    }
+
+    override fun playTrack(track: Track, contextTracks: List<Track>) {
+        scope.launch {
+            playTrackWithResult(track, contextTracks)
         }
     }
 

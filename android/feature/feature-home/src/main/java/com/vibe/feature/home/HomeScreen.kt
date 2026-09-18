@@ -36,6 +36,8 @@ fun HomeScreen(
     playlists: List<Playlist> = emptyList(),
     recentTracks: List<Track> = emptyList(),
     userAvatarUrl: String? = null,
+    currentTrackId: String? = null,
+    isPlaying: Boolean = false,
     onPlaylistClick: (String) -> Unit = {},
     onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
     onDevicesClick: () -> Unit = {},
@@ -289,10 +291,12 @@ fun HomeScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
+                                val isCurrent = track.id == currentTrackId
                                 Text(
                                     track.name,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
+                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )

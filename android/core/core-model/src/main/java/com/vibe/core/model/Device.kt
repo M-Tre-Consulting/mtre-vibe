@@ -29,3 +29,12 @@ data class Device(
     val mdnsHost: String? = null,
     val mdnsPort: Int? = null
 )
+
+val Device.isRemote: Boolean
+    get() = type == DeviceType.COMPUTER ||
+            type == DeviceType.SPEAKER ||
+            type == DeviceType.AVR ||
+            type == DeviceType.CAST_AUDIO ||
+            type == DeviceType.CAST_VIDEO ||
+            (!isLocal && !name.equals(android.os.Build.MODEL, ignoreCase = true))
+

@@ -43,8 +43,11 @@ import com.vibe.core.model.Playlist
 import com.vibe.core.model.Queue
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import com.vibe.core.model.isRemote
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import com.vibe.core.network.model.UserProfileDto
 import com.vibe.feature.lyrics.LyricsScreen
 import com.vibe.feature.queue.QueueScreen
@@ -61,6 +64,7 @@ import com.vibe.core.ui.ExpressiveNavItem
 import com.vibe.core.ui.ExpressivePillNavBar
 import com.vibe.core.ui.SwipeBackContainer
 import com.vibe.core.ui.SwipeDismissContainer
+import com.vibe.core.ui.TrackOptionsBottomSheet
 import com.vibe.core.ui.VibeTheme
 import com.vibe.feature.album.AlbumScreen
 import com.vibe.feature.artist.ArtistScreen
@@ -87,6 +91,7 @@ class MainActivity : ComponentActivity() {
     private val searchManager: DualSearchManager by inject()
     private val settingsManager: SettingsManager by inject()
 
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIncomingIntent(intent)
@@ -106,6 +111,7 @@ class MainActivity : ComponentActivity() {
             var currentScreen by remember { mutableStateOf("home") }
             var isFullPlayerVisible by remember { mutableStateOf(false) }
             var isDevicesDialogVisible by remember { mutableStateOf(false) }
+            var isRefreshingDevices by remember { mutableStateOf(false) }
             var isSettingsDialogVisible by remember { mutableStateOf(false) }
             var isQueueVisible by remember { mutableStateOf(false) }
             var isLyricsVisible by remember { mutableStateOf(false) }
@@ -121,6 +127,13 @@ class MainActivity : ComponentActivity() {
             var userPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
             var userLikedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
             var userSavedAlbums by remember { mutableStateOf<List<AlbumSummary>>(emptyList()) }
+            var selectedTrackForOptions by remember { mutableStateOf<Track?>(null) }
+
+            LaunchedEffect(Unit) {
+                audioPlayer.errorEvents.collect { errorMsg ->
+                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
+                }
+            }
 
             LaunchedEffect(authState) {
                 if (authState is AuthState.Authenticated) {
@@ -136,7 +149,25 @@ class MainActivity : ComponentActivity() {
                     apiService.getUserSavedAlbums(50, 0).onSuccess { albums ->
                         userSavedAlbums = albums
                     }
-                    checkAndAutoConnectActiveDevice()
+                    refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
+
+                    // Periodic background check to detect remote playback starting on PC/Speaker
+                    while (isActive) {
+                        delay(8000)
+                        refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
+                    }
+                }
+            }
+
+            LaunchedEffect(isDevicesDialogVisible) {
+                if (isDevicesDialogVisible) {
+                    isRefreshingDevices = true
+                    refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
+                    isRefreshingDevices = false
+                    while (isActive) {
+                        delay(2500)
+                        refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = false)
+                    }
                 }
             }
 
@@ -199,7 +230,7 @@ class MainActivity : ComponentActivity() {
                         is AuthState.Authenticated -> {
                             Scaffold(
                                 bottomBar = {
-                                    val isAnyModalVisible = isFullPlayerVisible || isQueueVisible || isLyricsVisible || isSettingsDialogVisible || isDevicesDialogVisible
+                                    val isAnyModalVisible = isFullPlayerVisible || isQueueVisible || isLyricsVisible || isSettingsDialogVisible || isDevicesDialogVisible || selectedTrackForOptions != null
                                     AnimatedVisibility(
                                         visible = !isAnyModalVisible,
                                         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -317,213 +348,233 @@ class MainActivity : ComponentActivity() {
                                                 activeArtist?.let { artist ->
                                                     SwipeBackContainer(onBack = { activeArtist = null }) {
                                                         ArtistScreen(
-                                                             artist = artist,
-                                                             onBack = { activeArtist = null },
-                                                             onTrackClick = { track ->
-                                                                 playLocalTrack(track, artist.topTracks)
-                                                             },
-                                                             onAlbumClick = { albumId ->
-                                                                 lifecycleScope.launch {
-                                                                     apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
-                                                                 }
-                                                             }
-                                                         )
-                                                     }
-                                                     BackHandler { activeArtist = null }
-                                                 }
-                                             }
-                                             "album" -> {
-                                                 activeAlbum?.let { album ->
-                                                     SwipeBackContainer(onBack = { activeAlbum = null }) {
-                                                         AlbumScreen(
-                                                             album = album,
-                                                             isPlaying = playbackState.isPlaying && album.tracks.any { it.id == playbackState.currentTrack?.id },
-                                                             isShuffleActive = playbackState.shuffleEnabled,
-                                                             isSmartShuffleActive = playbackState.isSmartShuffleActive,
-                                                             repeatMode = playbackState.repeatMode,
-                                                             onBack = { activeAlbum = null },
-                                                             onArtistClick = { artistId ->
-                                                                 activeAlbum = null
-                                                                 lifecycleScope.launch {
-                                                                     apiService.getArtist(artistId).onSuccess { activeArtist = it }
-                                                                 }
-                                                             },
-                                                             onPlayClick = {
-                                                                 if (playbackState.isPlaying) {
-                                                                     audioPlayer.pause()
-                                                                 } else if (album.tracks.isNotEmpty()) {
-                                                                     if (playbackState.currentTrack != null && album.tracks.any { it.id == playbackState.currentTrack?.id }) {
-                                                                         audioPlayer.resume()
-                                                                     } else {
-                                                                         playLocalCollection(album.tracks, 0)
-                                                                     }
-                                                                 }
-                                                             },
-                                                             onShuffleClick = {
-                                                                 audioPlayer.toggleShuffle()
-                                                                 if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
-                                                                     playLocalCollection(album.tracks, 0)
-                                                                 }
-                                                             },
-                                                             onSmartShuffleClick = {
-                                                                 audioPlayer.toggleSmartShuffle()
-                                                                 if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
-                                                                     playLocalCollection(album.tracks, 0)
-                                                                 }
-                                                             },
-                                                             onRepeatClick = {
-                                                                 audioPlayer.toggleRepeat()
-                                                             },
-                                                             onTrackClick = { track, _ ->
-                                                                 playLocalTrack(track, album.tracks)
-                                                             }
-                                                         )
-                                                     }
-                                                     BackHandler { activeAlbum = null }
-                                                 }
-                                             }
-                                             "playlist" -> {
-                                                 activePlaylist?.let { playlist ->
-                                                     SwipeBackContainer(onBack = { activePlaylist = null }) {
-                                                         PlaylistScreen(
-                                                             playlist = playlist,
-                                                             isPlaying = playbackState.isPlaying && playlist.tracks.any { it.id == playbackState.currentTrack?.id },
-                                                             isShuffleActive = playbackState.shuffleEnabled,
-                                                             isSmartShuffleActive = playbackState.isSmartShuffleActive,
-                                                             repeatMode = playbackState.repeatMode,
-                                                             onBack = { activePlaylist = null },
-                                                             onPlayClick = {
-                                                                 if (playbackState.isPlaying) {
-                                                                     audioPlayer.pause()
-                                                                 } else if (playlist.tracks.isNotEmpty()) {
-                                                                     if (playbackState.currentTrack != null && playlist.tracks.any { it.id == playbackState.currentTrack?.id }) {
-                                                                         audioPlayer.resume()
-                                                                     } else {
-                                                                         playLocalCollection(playlist.tracks, 0)
-                                                                     }
-                                                                 }
-                                                             },
-                                                             onShuffleClick = {
-                                                                 audioPlayer.toggleShuffle()
-                                                                 if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
-                                                                     playLocalCollection(playlist.tracks, 0)
-                                                                 }
-                                                             },
-                                                             onSmartShuffleClick = {
-                                                                 audioPlayer.toggleSmartShuffle()
-                                                                 if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
-                                                                     playLocalCollection(playlist.tracks, 0)
-                                                                 }
-                                                             },
-                                                             onRepeatClick = {
-                                                                 audioPlayer.toggleRepeat()
-                                                             },
-                                                             onTrackClick = { track, _ ->
-                                                                 playLocalTrack(track, playlist.tracks)
-                                                             }
-                                                         )
-                                                     }
-                                                     BackHandler { activePlaylist = null }
-                                                 }
-                                             }
-                                             "home" -> HomeScreen(
-                                                 playlists = userPlaylists,
-                                                 recentTracks = userLikedTracks,
-                                                 userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
-                                                 onPlaylistClick = { playlistId ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getPlaylist(playlistId).onSuccess { p ->
-                                                             activePlaylist = p
-                                                         }
-                                                     }
-                                                 },
-                                                 onTrackClick = { track, tracks ->
-                                                     playLocalTrack(track, tracks)
-                                                 },
-                                                 onDevicesClick = { isDevicesDialogVisible = true },
-                                                 onSettingsClick = { isSettingsDialogVisible = true }
-                                             )
-                                             "search" -> SearchScreen(
-                                                 searchManager = searchManager,
-                                                 onTrackClick = { track, contextTracks ->
-                                                     playLocalTrack(track, contextTracks)
-                                                 },
-                                                 onArtistClick = { artistId ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getArtist(artistId).onSuccess { activeArtist = it }
-                                                     }
-                                                 },
-                                                 onAlbumClick = { albumId ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
-                                                     }
-                                                 },
-                                                 onPlaylistClick = { playlistId ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getPlaylist(playlistId).onSuccess { activePlaylist = it }
-                                                     }
-                                                 }
-                                             )
-                                             "library" -> LibraryScreen(
-                                                 playlists = userPlaylists,
-                                                 albums = userSavedAlbums,
-                                                 likedTracks = userLikedTracks,
-                                                 userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
-                                                 onDevicesClick = { isDevicesDialogVisible = true },
-                                                 onSettingsClick = { isSettingsDialogVisible = true },
-                                                 onOpenLikedSongs = {
-                                                     activePlaylist = Playlist(
-                                                         id = "liked_songs",
-                                                         uri = "spotify:user:liked",
-                                                         name = "Brani che ti piacciono",
-                                                         description = "I brani salvati nella tua libreria",
-                                                         ownerName = "Tu",
-                                                         ownerId = "me",
-                                                         tracks = userLikedTracks,
-                                                         totalTracks = userLikedTracks.size,
-                                                         isPinned = true,
-                                                         coverImageUrl = null
-                                                     )
-                                                 },
-                                                 onPlaylistClick = { playlist ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getPlaylist(playlist.id).onSuccess { activePlaylist = it }
-                                                     }
-                                                 },
-                                                 onPlaylistDoubleClick = { playlist ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getPlaylist(playlist.id).onSuccess { p ->
-                                                             if (p.tracks.isNotEmpty()) {
-                                                                 playLocalTrack(p.tracks.first(), p.tracks)
-                                                             }
-                                                         }
-                                                     }
-                                                 },
-                                                 onAlbumClick = { albumId ->
-                                                     lifecycleScope.launch {
-                                                         apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
-                                                     }
-                                                 },
-                                                 onTrackClick = { track, tracks ->
-                                                     playLocalTrack(track, tracks)
-                                                 },
-                                                 onShuffleAll = {
-                                                     if (userLikedTracks.isNotEmpty()) {
-                                                         audioPlayer.setShuffle(true)
-                                                         playLocalCollection(userLikedTracks, 0)
-                                                     } else if (userPlaylists.isNotEmpty()) {
-                                                         lifecycleScope.launch {
-                                                             apiService.getPlaylist(userPlaylists.random().id).onSuccess { p ->
-                                                                 if (p.tracks.isNotEmpty()) {
-                                                                     audioPlayer.setShuffle(true)
-                                                                     playLocalCollection(p.tracks, 0)
-                                                                 }
-                                                             }
-                                                         }
-                                                     }
-                                                 }
-                                             )
-                                         }
+                                                            artist = artist,
+                                                            isPlaying = playbackState.isPlaying,
+                                                            currentTrackId = playbackState.currentTrack?.id,
+                                                            onBack = { activeArtist = null },
+                                                            onTrackClick = { track ->
+                                                                playLocalTrack(track, artist.topTracks)
+                                                            },
+                                                            onAlbumClick = { albumId ->
+                                                                lifecycleScope.launch {
+                                                                    apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                                }
+                                                            },
+                                                            onSwipeToQueue = { track -> addTrackToQueue(track) },
+                                                            onTrackOptions = { track -> selectedTrackForOptions = track }
+                                                        )
+                                                    }
+                                                    BackHandler { activeArtist = null }
+                                                }
+                                            }
+                                            "album" -> {
+                                                activeAlbum?.let { album ->
+                                                    SwipeBackContainer(onBack = { activeAlbum = null }) {
+                                                        AlbumScreen(
+                                                            album = album,
+                                                            isPlaying = playbackState.isPlaying && album.tracks.any { it.id == playbackState.currentTrack?.id },
+                                                            currentTrackId = playbackState.currentTrack?.id,
+                                                            isShuffleActive = playbackState.shuffleEnabled,
+                                                            isSmartShuffleActive = playbackState.isSmartShuffleActive,
+                                                            repeatMode = playbackState.repeatMode,
+                                                            onBack = { activeAlbum = null },
+                                                            onArtistClick = { artistId ->
+                                                                activeAlbum = null
+                                                                lifecycleScope.launch {
+                                                                    apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                                }
+                                                            },
+                                                            onPlayClick = {
+                                                                if (playbackState.isPlaying) {
+                                                                    audioPlayer.pause()
+                                                                } else if (album.tracks.isNotEmpty()) {
+                                                                    if (playbackState.currentTrack != null && album.tracks.any { it.id == playbackState.currentTrack?.id }) {
+                                                                        audioPlayer.resume()
+                                                                    } else {
+                                                                        playLocalCollection(album.tracks, 0)
+                                                                    }
+                                                                }
+                                                            },
+                                                            onShuffleClick = {
+                                                                audioPlayer.toggleShuffle()
+                                                                if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
+                                                                    playLocalCollection(album.tracks, 0)
+                                                                }
+                                                            },
+                                                            onSmartShuffleClick = {
+                                                                audioPlayer.toggleSmartShuffle()
+                                                                if (!playbackState.isPlaying && album.tracks.isNotEmpty()) {
+                                                                    playLocalCollection(album.tracks, 0)
+                                                                }
+                                                            },
+                                                            onRepeatClick = {
+                                                                audioPlayer.toggleRepeat()
+                                                            },
+                                                            onTrackClick = { track, _ ->
+                                                                playLocalTrack(track, album.tracks)
+                                                            },
+                                                            onSwipeToQueue = { track -> addTrackToQueue(track) },
+                                                            onTrackOptions = { track -> selectedTrackForOptions = track }
+                                                        )
+                                                    }
+                                                    BackHandler { activeAlbum = null }
+                                                }
+                                            }
+                                            "playlist" -> {
+                                                activePlaylist?.let { playlist ->
+                                                    SwipeBackContainer(onBack = { activePlaylist = null }) {
+                                                        PlaylistScreen(
+                                                            playlist = playlist,
+                                                            isPlaying = playbackState.isPlaying && playlist.tracks.any { it.id == playbackState.currentTrack?.id },
+                                                            currentTrackId = playbackState.currentTrack?.id,
+                                                            isShuffleActive = playbackState.shuffleEnabled,
+                                                            isSmartShuffleActive = playbackState.isSmartShuffleActive,
+                                                            repeatMode = playbackState.repeatMode,
+                                                            onBack = { activePlaylist = null },
+                                                            onPlayClick = {
+                                                                if (playbackState.isPlaying) {
+                                                                    audioPlayer.pause()
+                                                                } else if (playlist.tracks.isNotEmpty()) {
+                                                                    if (playbackState.currentTrack != null && playlist.tracks.any { it.id == playbackState.currentTrack?.id }) {
+                                                                        audioPlayer.resume()
+                                                                    } else {
+                                                                        playLocalCollection(playlist.tracks, 0)
+                                                                    }
+                                                                }
+                                                            },
+                                                            onShuffleClick = {
+                                                                audioPlayer.toggleShuffle()
+                                                                if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
+                                                                    playLocalCollection(playlist.tracks, 0)
+                                                                }
+                                                            },
+                                                            onSmartShuffleClick = {
+                                                                audioPlayer.toggleSmartShuffle()
+                                                                if (!playbackState.isPlaying && playlist.tracks.isNotEmpty()) {
+                                                                    playLocalCollection(playlist.tracks, 0)
+                                                                }
+                                                            },
+                                                            onRepeatClick = {
+                                                                audioPlayer.toggleRepeat()
+                                                            },
+                                                            onTrackClick = { track, _ ->
+                                                                playLocalTrack(track, playlist.tracks)
+                                                            },
+                                                            onSwipeToQueue = { track -> addTrackToQueue(track) },
+                                                            onTrackOptions = { track -> selectedTrackForOptions = track }
+                                                        )
+                                                    }
+                                                    BackHandler { activePlaylist = null }
+                                                }
+                                            }
+                                            "home" -> HomeScreen(
+                                                playlists = userPlaylists,
+                                                recentTracks = userLikedTracks,
+                                                userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
+                                                currentTrackId = playbackState.currentTrack?.id,
+                                                isPlaying = playbackState.isPlaying,
+                                                onPlaylistClick = { playlistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlistId).onSuccess { p ->
+                                                            activePlaylist = p
+                                                        }
+                                                    }
+                                                },
+                                                onTrackClick = { track, tracks ->
+                                                    playLocalTrack(track, tracks)
+                                                },
+                                                onDevicesClick = { isDevicesDialogVisible = true },
+                                                onSettingsClick = { isSettingsDialogVisible = true }
+                                            )
+                                            "search" -> SearchScreen(
+                                                searchManager = searchManager,
+                                                isPlaying = playbackState.isPlaying,
+                                                currentTrackId = playbackState.currentTrack?.id,
+                                                onTrackClick = { track, contextTracks ->
+                                                    playLocalTrack(track, contextTracks)
+                                                },
+                                                onArtistClick = { artistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                                    }
+                                                },
+                                                onAlbumClick = { albumId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                    }
+                                                },
+                                                onPlaylistClick = { playlistId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlistId).onSuccess { activePlaylist = it }
+                                                    }
+                                                },
+                                                onSwipeToQueue = { track -> addTrackToQueue(track) },
+                                                onTrackOptions = { track -> selectedTrackForOptions = track }
+                                            )
+                                            "library" -> LibraryScreen(
+                                                playlists = userPlaylists,
+                                                albums = userSavedAlbums,
+                                                likedTracks = userLikedTracks,
+                                                userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
+                                                isPlaying = playbackState.isPlaying,
+                                                currentTrackId = playbackState.currentTrack?.id,
+                                                onDevicesClick = { isDevicesDialogVisible = true },
+                                                onSettingsClick = { isSettingsDialogVisible = true },
+                                                onOpenLikedSongs = {
+                                                    activePlaylist = Playlist(
+                                                        id = "liked_songs",
+                                                        uri = "spotify:user:liked",
+                                                        name = "Brani che ti piacciono",
+                                                        description = "I brani salvati nella tua libreria",
+                                                        ownerName = "Tu",
+                                                        ownerId = "me",
+                                                        tracks = userLikedTracks,
+                                                        totalTracks = userLikedTracks.size,
+                                                        isPinned = true,
+                                                        coverImageUrl = null
+                                                    )
+                                                },
+                                                onPlaylistClick = { playlist ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlist.id).onSuccess { activePlaylist = it }
+                                                    }
+                                                },
+                                                onPlaylistDoubleClick = { playlist ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getPlaylist(playlist.id).onSuccess { p ->
+                                                            if (p.tracks.isNotEmpty()) {
+                                                                playLocalTrack(p.tracks.first(), p.tracks)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onAlbumClick = { albumId ->
+                                                    lifecycleScope.launch {
+                                                        apiService.getAlbum(albumId).onSuccess { activeAlbum = it }
+                                                    }
+                                                },
+                                                onTrackClick = { track, tracks ->
+                                                    playLocalTrack(track, tracks)
+                                                },
+                                                onShuffleAll = {
+                                                    if (userLikedTracks.isNotEmpty()) {
+                                                        audioPlayer.setShuffle(true)
+                                                        playLocalCollection(userLikedTracks, 0)
+                                                    } else if (userPlaylists.isNotEmpty()) {
+                                                        lifecycleScope.launch {
+                                                            apiService.getPlaylist(userPlaylists.random().id).onSuccess { p ->
+                                                                if (p.tracks.isNotEmpty()) {
+                                                                    audioPlayer.setShuffle(true)
+                                                                    playLocalCollection(p.tracks, 0)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onSwipeToQueue = { track -> addTrackToQueue(track) },
+                                                onTrackOptions = { track -> selectedTrackForOptions = track }
+                                            )
+                                        }
                                      }
                                  }
                              }
@@ -714,10 +765,17 @@ class MainActivity : ComponentActivity() {
 
                             // Connect Devices Dialog
                             if (isDevicesDialogVisible) {
-                                val anyRemoteActive = devices.any { it.isActive && it.name != android.os.Build.MODEL }
+                                val activeDeviceState = playbackState.activeDevice
+                                val anyRemoteActive = devices.any { it.isActive && it.isRemote } ||
+                                        (activeDeviceState?.isRemote == true)
+                                val isLocalActive = (vibeSettings.playbackMode != PlaybackMode.CONNECT) && !anyRemoteActive
+                                val activeRemoteId = activeDeviceState?.id ?: devices.firstOrNull { it.isActive && it.isRemote }?.id
+
                                 DevicesDialog(
                                     devices = devices,
-                                    isLocalPlaybackActive = !anyRemoteActive,
+                                    isLocalPlaybackActive = isLocalActive,
+                                    activeDeviceId = activeRemoteId,
+                                    isRefreshing = isRefreshingDevices,
                                     onSelectLocalPlayback = {
                                         android.util.Log.i("VIBE_CONNECT", "User selected Local Playback on this device -> Switching mode to SPOTIFY_REMOTE")
                                         isDevicesDialogVisible = false
@@ -725,7 +783,7 @@ class MainActivity : ComponentActivity() {
                                             settingsManager.setPlaybackMode(PlaybackMode.SPOTIFY_REMOTE)
                                             (audioPlayer as? RoutingAudioPlayerImpl)?.switchToSpotifyRemote(transferPlayback = playbackState.isPlaying)
                                             val phoneDevice = devices.firstOrNull { 
-                                                it.type == DeviceType.SMARTPHONE || it.isLocal || it.name.contains(android.os.Build.MODEL, ignoreCase = true) 
+                                                !it.isRemote || it.type == DeviceType.SMARTPHONE || it.name.contains(android.os.Build.MODEL, ignoreCase = true) 
                                             }
                                             if (phoneDevice != null) {
                                                 apiService.transferPlayback(phoneDevice.id, play = playbackState.isPlaying)
@@ -776,6 +834,72 @@ class MainActivity : ComponentActivity() {
                                     onDismiss = { isSettingsDialogVisible = false }
                                 )
                             }
+
+                            // Track Context Options Modal Bottom Sheet
+                            selectedTrackForOptions?.let { track ->
+                                val isLiked = userLikedTracks.any { it.id == track.id }
+                                TrackOptionsBottomSheet(
+                                    track = track,
+                                    isLiked = isLiked,
+                                    onDismiss = { selectedTrackForOptions = null },
+                                    onPlayNow = {
+                                        playLocalTrack(track, listOf(track))
+                                    },
+                                    onAddToQueue = {
+                                        addTrackToQueue(track)
+                                    },
+                                    onToggleLike = {
+                                        val newLiked = !isLiked
+                                        lifecycleScope.launch {
+                                            apiService.setLiked(track.id, newLiked).onSuccess {
+                                                if (newLiked) {
+                                                    userLikedTracks = listOf(track.copy(isLiked = true)) + userLikedTracks
+                                                    Toast.makeText(
+                                                        this@MainActivity,
+                                                        getString(com.vibe.core.ui.R.string.track_options_add_to_favorites),
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                } else {
+                                                    userLikedTracks = userLikedTracks.filterNot { it.id == track.id }
+                                                    Toast.makeText(
+                                                        this@MainActivity,
+                                                        getString(com.vibe.core.ui.R.string.track_options_remove_from_favorites),
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            }.onFailure { err ->
+                                                Toast.makeText(this@MainActivity, "Errore: ${err.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    onViewAlbum = {
+                                        if (track.album.id.isNotBlank()) {
+                                            lifecycleScope.launch {
+                                                apiService.getAlbum(track.album.id).onSuccess { activeAlbum = it }
+                                            }
+                                        }
+                                    },
+                                    onViewArtist = {
+                                        val artistId = track.artists.firstOrNull()?.id
+                                        if (!artistId.isNullOrBlank()) {
+                                            lifecycleScope.launch {
+                                                apiService.getArtist(artistId).onSuccess { activeArtist = it }
+                                            }
+                                        }
+                                    },
+                                    onShare = {
+                                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(android.content.Intent.EXTRA_SUBJECT, track.name)
+                                            putExtra(
+                                                android.content.Intent.EXTRA_TEXT,
+                                                "Ascolta \"${track.name}\" di ${track.artists.firstOrNull()?.name ?: ""} su Spotify: https://open.spotify.com/track/${track.id}"
+                                            )
+                                        }
+                                        startActivity(android.content.Intent.createChooser(shareIntent, track.name))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -808,30 +932,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkAndAutoConnectActiveDevice() {
-        lifecycleScope.launch {
-            try {
-                val stateResult = apiService.getPlaybackState()
-                stateResult.onSuccess { state ->
-                    val activeDev = state?.activeDevice
-                    if (state != null && state.isPlaying && activeDev != null) {
-                        val phoneModel = android.os.Build.MODEL
-                        val isRemote = activeDev.name != phoneModel
-                        if (isRemote) {
-                            android.util.Log.i(
-                                "VIBE_CONNECT",
-                                "Auto-connecting to active remote Spotify session on '${activeDev.name}' (ID: ${activeDev.id})"
-                            )
-                            settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
-                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(activeDev.id)
-                        }
-                    }
-                }.onFailure { err ->
-                    android.util.Log.d("VIBE_CONNECT", "Playback state check on startup: ${err.message}")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("VIBE_CONNECT", "Error checking active playback session on startup", e)
+    private suspend fun refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive: Boolean = true) {
+        try {
+            // 1. Fetch available devices from Web API
+            val devicesResult = apiService.getAvailableDevices()
+            val webApiDevices = devicesResult.getOrNull() ?: emptyList()
+            if (webApiDevices.isNotEmpty()) {
+                connectDeviceManager.syncWithWebApiDevices(webApiDevices)
             }
+
+            // 2. Fetch current playback state
+            val playbackResult = apiService.getPlaybackState()
+            val state = playbackResult.getOrNull()
+
+            val activeDevice = state?.activeDevice ?: webApiDevices.firstOrNull { it.isActive }
+
+            if (activeDevice != null && activeDevice.isRemote) {
+                android.util.Log.i(
+                    "VIBE_CONNECT",
+                    "Active remote device detected: '${activeDevice.name}' (type=${activeDevice.type}, isPlaying=${state?.isPlaying})"
+                )
+                if (autoSwitchIfRemoteActive) {
+                    val currentSettings = settingsManager.settingsFlow.first()
+                    if (currentSettings.playbackMode != PlaybackMode.CONNECT) {
+                        android.util.Log.i(
+                            "VIBE_CONNECT",
+                            "Auto-switching playback mode to CONNECT for device '${activeDevice.name}'"
+                        )
+                        settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
+                    }
+                    (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(activeDevice.id)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("VIBE_CONNECT", "Error refreshing devices and playback sync", e)
         }
     }
 
@@ -839,11 +973,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         connectDeviceManager.startDiscovery()
         lifecycleScope.launch {
-            apiService.getAvailableDevices().onSuccess { devs ->
-                connectDeviceManager.syncWithWebApiDevices(devs)
-            }
+            refreshDevicesAndSyncPlayback(autoSwitchIfRemoteActive = true)
         }
-        checkAndAutoConnectActiveDevice()
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
             if (settings.playbackMode == PlaybackMode.SPOTIFY_REMOTE && spotifyAppRemoteManager.isSpotifyInstalled()) {

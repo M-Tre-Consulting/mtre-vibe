@@ -28,8 +28,11 @@ import com.vibe.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -52,6 +55,9 @@ class Media3AudioPlayerImpl(
     companion object {
         private const val TAG = "VIBE_PLAYER"
     }
+
+    private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 5)
+    override val errorEvents: Flow<String> = _errorEvents.asSharedFlow()
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -153,13 +159,18 @@ class Media3AudioPlayerImpl(
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.e(TAG, "ExoPlayer Error [${error.errorCodeName} / code ${error.errorCode}]: ${error.message}", error)
+                    val msg = "Errore riproduzione ExoPlayer [${error.errorCodeName}]: ${error.message}"
+                    Log.e(TAG, msg, error)
                     _playbackState.update {
                         it.copy(
                             isBuffering = false,
                             isPlaying = false,
-                            isPaused = true
+                            isPaused = true,
+                            lastErrorMessage = msg
                         )
+                    }
+                    scope.launch {
+                        _errorEvents.emit(msg)
                     }
                 }
             })
@@ -287,14 +298,17 @@ class Media3AudioPlayerImpl(
                 exoPlayer.play()
                 Log.i(TAG, "ExoPlayer prepare() & play() called successfully for '${track.name}'")
             } else {
-                Log.e(TAG, "Resolution failed! Unable to resolve playable audio stream for '${track.name}'")
+                val msg = "Impossibile trovare uno stream audio per '${track.name}' (nessuna sorgente trovata)."
+                Log.e(TAG, "Resolution failed! $msg")
                 _playbackState.update {
                     it.copy(
                         isBuffering = false,
                         isPlaying = false,
-                        isPaused = true
+                        isPaused = true,
+                        lastErrorMessage = msg
                     )
                 }
+                _errorEvents.emit(msg)
             }
 
             // Prefetch next track audio URL in background

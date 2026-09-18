@@ -3,10 +3,12 @@ package com.vibe.core.playback
 import com.vibe.core.model.PlaybackState
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 interface VibeAudioPlayer {
     val playbackState: StateFlow<PlaybackState>
+    val errorEvents: Flow<String>
 
     /**
      * Prepares and starts playback of a track with instant metadata display

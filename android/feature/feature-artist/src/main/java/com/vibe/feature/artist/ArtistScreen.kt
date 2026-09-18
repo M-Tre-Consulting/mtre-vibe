@@ -28,10 +28,14 @@ import com.vibe.core.ui.TrackRow
 fun ArtistScreen(
     artist: Artist,
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = false,
+    currentTrackId: String? = null,
     onBack: () -> Unit = {},
     onTrackClick: (Track) -> Unit = {},
     onAlbumClick: (String) -> Unit = {},
-    onFollowClick: () -> Unit = {}
+    onFollowClick: () -> Unit = {},
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     var discographyFilter by remember { mutableStateOf("Albums") }
 
@@ -117,10 +121,16 @@ fun ArtistScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(artist.topTracks) { track ->
+            items(artist.topTracks, key = { it.id }) { track ->
+                val isCurrent = track.id == currentTrackId
                 TrackRow(
                     track = track,
-                    onClick = { onTrackClick(track) }
+                    isCurrentTrack = isCurrent,
+                    isPlaying = isCurrent && isPlaying,
+                    showArtwork = true,
+                    onClick = { onTrackClick(track) },
+                    onLongClick = { onTrackOptions?.invoke(track) },
+                    onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                 )
             }
 

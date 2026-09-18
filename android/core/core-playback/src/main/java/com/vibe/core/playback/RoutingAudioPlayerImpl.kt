@@ -9,8 +9,11 @@ import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -46,10 +49,30 @@ class RoutingAudioPlayerImpl(
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
 
+    private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 20)
+    override val errorEvents: Flow<String> = _errorEvents.asSharedFlow()
+
     val mediaSession: MediaSession
         get() = exoPlayer.mediaSession
 
     init {
+        // Forward error events from all sub-players
+        scope.launch {
+            spotifyRemote.errorEvents.collect { err ->
+                _errorEvents.emit(err)
+            }
+        }
+        scope.launch {
+            spotifyConnect.errorEvents.collect { err ->
+                _errorEvents.emit(err)
+            }
+        }
+        scope.launch {
+            exoPlayer.errorEvents.collect { err ->
+                _errorEvents.emit(err)
+            }
+        }
+
         // Collect updates from Spotify App Remote
         scope.launch {
             spotifyRemote.playbackState.collect { state ->
@@ -87,7 +110,19 @@ class RoutingAudioPlayerImpl(
                 PlaybackMode.CONNECT -> {
                     Log.i(TAG, "Routing track to Spotify Connect (Active Device: ${spotifyConnect.targetDeviceId})")
                     switchToConnect()
-                    spotifyConnect.playTrack(track, contextTracks)
+                    val result = spotifyConnect.playTrackWithResult(track, contextTracks)
+                    if (result.isFailure) {
+                        val errMsg = result.exceptionOrNull()?.message ?: "Errore Spotify Connect"
+                        if (settings.autoFallbackEnabled) {
+                            val msg = "Spotify Connect non risponde ($errMsg). Avvio riproduzione locale..."
+                            Log.w(TAG, msg)
+                            _errorEvents.emit(msg)
+                            switchToExoPlayer()
+                            exoPlayer.playTrack(track, contextTracks)
+                        } else {
+                            _errorEvents.emit("Spotify Connect: $errMsg")
+                        }
+                    }
                 }
                 PlaybackMode.STANDALONE -> {
                     Log.i(TAG, "Routing track to ExoPlayer (STANDALONE mode)")
@@ -98,13 +133,29 @@ class RoutingAudioPlayerImpl(
                     if (spotifyRemote.isSpotifyInstalled()) {
                         Log.i(TAG, "Routing track to Spotify App Remote IPC")
                         switchToSpotifyRemote()
-                        spotifyRemote.playTrack(track, contextTracks)
+                        val result = spotifyRemote.playTrackWithResult(track, contextTracks)
+                        if (result.isFailure) {
+                            val errMsg = result.exceptionOrNull()?.message ?: "Spotify App non risponde"
+                            if (settings.autoFallbackEnabled) {
+                                val msg = "Spotify App non risponde ($errMsg). Avvio riproduzione locale..."
+                                Log.w(TAG, msg)
+                                _errorEvents.emit(msg)
+                                switchToExoPlayer()
+                                exoPlayer.playTrack(track, contextTracks)
+                            } else {
+                                _errorEvents.emit("Spotify App Remote: $errMsg")
+                            }
+                        }
                     } else if (settings.autoFallbackEnabled) {
-                        Log.i(TAG, "Spotify app not installed -> Falling back to ExoPlayer")
+                        val msg = "App Spotify non installata. Avvio riproduzione locale..."
+                        Log.i(TAG, msg)
+                        _errorEvents.emit(msg)
                         switchToExoPlayer()
                         exoPlayer.playTrack(track, contextTracks)
                     } else {
-                        Log.w(TAG, "Spotify app not installed and autoFallback disabled")
+                        val msg = "App Spotify non installata su questo dispositivo"
+                        Log.w(TAG, msg)
+                        _errorEvents.emit(msg)
                     }
                 }
             }
@@ -112,30 +163,9 @@ class RoutingAudioPlayerImpl(
     }
 
     override fun playFilteredCollection(tracks: List<Track>, startIndex: Int) {
-        scope.launch {
-            val settings = settingsManager.settingsFlow.first()
-            Log.i(TAG, "playFilteredCollection called with ${tracks.size} tracks (Mode: ${settings.playbackMode})")
-
-            when (settings.playbackMode) {
-                PlaybackMode.CONNECT -> {
-                    switchToConnect()
-                    spotifyConnect.playFilteredCollection(tracks, startIndex)
-                }
-                PlaybackMode.STANDALONE -> {
-                    switchToExoPlayer()
-                    exoPlayer.playFilteredCollection(tracks, startIndex)
-                }
-                PlaybackMode.SPOTIFY_REMOTE -> {
-                    if (spotifyRemote.isSpotifyInstalled()) {
-                        switchToSpotifyRemote()
-                        spotifyRemote.playFilteredCollection(tracks, startIndex)
-                    } else if (settings.autoFallbackEnabled) {
-                        switchToExoPlayer()
-                        exoPlayer.playFilteredCollection(tracks, startIndex)
-                    }
-                }
-            }
-        }
+        if (tracks.isEmpty()) return
+        val targetTrack = tracks.getOrNull(startIndex) ?: tracks.first()
+        playTrack(targetTrack, tracks)
     }
 
     fun switchToConnect(deviceId: String? = null, transferPlayback: Boolean = false) {
@@ -157,6 +187,11 @@ class RoutingAudioPlayerImpl(
                 scope.launch {
                     spotifyConnect.syncRemotePlaybackState()
                 }
+            }
+        } else {
+            spotifyConnect.startPolling()
+            scope.launch {
+                spotifyConnect.syncRemotePlaybackState()
             }
         }
     }

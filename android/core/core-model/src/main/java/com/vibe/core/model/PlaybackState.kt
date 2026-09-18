@@ -26,5 +26,7 @@ data class PlaybackState(
     val contextTitle: String? = null,
     val audioBitrateKbps: Int = 320,
     val isGaplessActive: Boolean = true,
-    val isVolumeNormalized: Boolean = true
+    val isVolumeNormalized: Boolean = true,
+    val lastErrorMessage: String? = null
 )
+

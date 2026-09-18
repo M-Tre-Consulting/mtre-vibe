@@ -46,6 +46,7 @@ fun PlaylistScreen(
     isShuffleActive: Boolean = false,
     isSmartShuffleActive: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
+    currentTrackId: String? = null,
     onBack: () -> Unit = {},
     onPlayClick: () -> Unit = {},
     onShuffleClick: () -> Unit = {},
@@ -53,7 +54,9 @@ fun PlaylistScreen(
     onRepeatClick: () -> Unit = {},
     onTrackClick: (Track, Int) -> Unit = { _, _ -> },
     onRefresh: () -> Unit = {},
-    onAddTrackToLiked: (Track) -> Unit = {}
+    onAddTrackToLiked: (Track) -> Unit = {},
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     val selectedTrackIds = remember { mutableStateListOf<String>() }
 
@@ -273,15 +276,24 @@ fun PlaylistScreen(
             // Tracklist
             itemsIndexed(playlist.tracks, key = { _, track -> track.id }) { index, track ->
                 val isSelected = selectedTrackIds.contains(track.id)
+                val isCurrent = track.id == currentTrackId
                 TrackRow(
                     track = track,
                     isSelected = isSelected,
+                    isCurrentTrack = isCurrent,
+                    isPlaying = isCurrent && isPlaying,
                     isCompact = isCompact,
+                    showArtwork = !isCompact,
                     onClick = { onTrackClick(track, index) },
                     onLongClick = {
-                        if (isSelected) selectedTrackIds.remove(track.id)
-                        else selectedTrackIds.add(track.id)
-                    }
+                        if (onTrackOptions != null) {
+                            onTrackOptions(track)
+                        } else {
+                            if (isSelected) selectedTrackIds.remove(track.id)
+                            else selectedTrackIds.add(track.id)
+                        }
+                    },
+                    onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                 )
             }
         }

@@ -57,7 +57,11 @@ fun LibraryScreen(
     onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
     onShuffleAll: () -> Unit = {},
     onDevicesClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    isPlaying: Boolean = false,
+    currentTrackId: String? = null,
+    onSwipeToQueue: ((Track) -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null
 ) {
     var selectedFilter by remember { mutableStateOf(LibraryFilter.PLAYLISTS) }
     var isGridView by remember { mutableStateOf(false) }
@@ -325,9 +329,15 @@ fun LibraryScreen(
                             contentPadding = PaddingValues(bottom = 90.dp)
                         ) {
                             items(likedTracks, key = { it.id }) { track ->
+                                val isCurrent = track.id == currentTrackId
                                 TrackRow(
                                     track = track,
-                                    onClick = { onTrackClick(track, likedTracks) }
+                                    isCurrentTrack = isCurrent,
+                                    isPlaying = isCurrent && isPlaying,
+                                    showArtwork = true,
+                                    onClick = { onTrackClick(track, likedTracks) },
+                                    onLongClick = { onTrackOptions?.invoke(track) },
+                                    onSwipeToQueue = onSwipeToQueue?.let { cb -> { cb(track) } }
                                 )
                             }
                         }

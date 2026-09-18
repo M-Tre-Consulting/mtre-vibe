@@ -117,6 +117,10 @@
     <string name="devices_spotify_connect">Spotify Connect</string>
     <string name="devices_remote_playing">In riproduzione su Spotify Connect</string>
     <string name="devices_close">Chiudi</string>
+    <string name="devices_searching">Ricerca dispositivi in corso…</string>
+    <string name="devices_no_devices">Nessun altro dispositivo Spotify Connect rilevato</string>
+    <string name="devices_no_devices_desc">Assicurati che Spotify sia aperto sul tuo PC o su altri dispositivi collegati allo stesso account.</string>
+    <string name="devices_listening_on">In ascolto su %1$s</string>
 
     <!-- Material 3 Expressive UI additions -->
     <string name="library_filter_tracks">Brani</string>
@@ -133,4 +137,14 @@
     <string name="player_shuffle">Riproduzione casuale</string>
     <string name="player_repeat">Ripeti</string>
     <string name="player_favorite">Preferito</string>
+
+    <!-- Track Options Bottom Sheet -->
+    <string name="track_options_play_now">Riproduci subito</string>
+    <string name="track_options_add_to_queue">Aggiungi alla coda</string>
+    <string name="track_options_add_to_favorites">Aggiungi ai Preferiti</string>
+    <string name="track_options_remove_from_favorites">Rimuovi dai Preferiti</string>
+    <string name="track_options_view_album">Visualizza album</string>
+    <string name="track_options_view_artist">Visualizza artista</string>
+    <string name="track_options_share">Condividi</string>
+    <string name="track_swipe_to_queue">Aggiungi alla coda</string>
 </resources>

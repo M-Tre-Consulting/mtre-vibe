@@ -85,7 +85,13 @@ fun QueueScreen(
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
-            TrackRow(track = current, onClick = { onTrackClick(current) })
+            TrackRow(
+                track = current,
+                isCurrentTrack = true,
+                isPlaying = true,
+                showArtwork = true,
+                onClick = { onTrackClick(current) }
+            )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -190,7 +196,11 @@ fun QueueScreen(
                         )
                     }
                     items(queue.contextQueue, key = { "context_${it.id}" }) { track ->
-                        TrackRow(track = track, onClick = { onTrackClick(track) })
+                        TrackRow(
+                            track = track,
+                            showArtwork = true,
+                            onClick = { onTrackClick(track) }
+                        )
                     }
                 }
 
@@ -205,7 +215,11 @@ fun QueueScreen(
                         )
                     }
                     items(queue.recentHistory) { record ->
-                        TrackRow(track = record.track, onClick = { onTrackClick(record.track) })
+                        TrackRow(
+                            track = record.track,
+                            showArtwork = true,
+                            onClick = { onTrackClick(record.track) }
+                        )
                     }
                 }
             }
