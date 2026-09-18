@@ -23,7 +23,7 @@ import java.util.regex.Pattern
  */
 object TrackAudioResolver {
 
-    private const val TAG = "TrackAudioResolver"
+    private const val TAG = "VIBE_RESOLVER"
     private val cache = ConcurrentHashMap<String, String>()
 
     private val httpClient = OkHttpClient.Builder()
@@ -37,10 +37,12 @@ object TrackAudioResolver {
 
     suspend fun resolveAudioUrl(track: Track): String? = withContext(Dispatchers.IO) {
         val cleanTrackId = track.id.removePrefix("spotify:track:").substringAfterLast(":")
+        val artistName = track.artists.firstOrNull()?.name ?: "Unknown Artist"
+        Log.i(TAG, "===> Resolving audio stream for: '${track.name}' by '$artistName' (ID: $cleanTrackId, duration: ${track.durationMs / 1000}s)")
 
         // 1. Check in-memory cache
         cache[cleanTrackId]?.let {
-            Log.d(TAG, "Cache hit for track: ${track.name} ($it)")
+            Log.i(TAG, "[Cache Hit] Found cached stream for '${track.name}': $it")
             return@withContext it
         }
 
@@ -50,35 +52,40 @@ object TrackAudioResolver {
             (previewUrl.startsWith("http://") || previewUrl.startsWith("https://"))
         ) {
             cache[cleanTrackId] = previewUrl
-            Log.d(TAG, "Direct previewUrl for ${track.name}: $previewUrl")
+            Log.i(TAG, "[Spotify Direct Preview] Available on track object: $previewUrl")
             return@withContext previewUrl
+        } else {
+            Log.d(TAG, "[Spotify Direct Preview] Not available (preview_url is null or empty)")
         }
 
         // 3. Try Spotify Embed extraction
+        Log.d(TAG, "[Step 1] Attempting Spotify Embed extraction for $cleanTrackId...")
         val spotifyEmbedUrl = resolveFromSpotifyEmbed(cleanTrackId)
         if (!spotifyEmbedUrl.isNullOrBlank()) {
             cache[cleanTrackId] = spotifyEmbedUrl
-            Log.d(TAG, "Spotify Embed resolved ${track.name}: $spotifyEmbedUrl")
+            Log.i(TAG, "[Spotify Embed Success] Resolved '${track.name}': $spotifyEmbedUrl")
             return@withContext spotifyEmbedUrl
         }
 
         // 4. Try Deezer Search preview
+        Log.d(TAG, "[Step 2] Attempting Deezer Search resolution for '$artistName - ${track.name}'...")
         val deezerUrl = resolveFromDeezer(track)
         if (!deezerUrl.isNullOrBlank()) {
             cache[cleanTrackId] = deezerUrl
-            Log.d(TAG, "Deezer CDN resolved ${track.name}: $deezerUrl")
+            Log.i(TAG, "[Deezer Success] Resolved '${track.name}': $deezerUrl")
             return@withContext deezerUrl
         }
 
         // 5. Try iTunes Search preview
+        Log.d(TAG, "[Step 3] Attempting iTunes Search resolution for '$artistName - ${track.name}'...")
         val itunesUrl = resolveFromITunes(track)
         if (!itunesUrl.isNullOrBlank()) {
             cache[cleanTrackId] = itunesUrl
-            Log.d(TAG, "iTunes resolved ${track.name}: $itunesUrl")
+            Log.i(TAG, "[iTunes Success] Resolved '${track.name}': $itunesUrl")
             return@withContext itunesUrl
         }
 
-        Log.w(TAG, "Failed to resolve audio stream for track: ${track.name} (${track.id})")
+        Log.w(TAG, "[Resolver Failed] All sources exhausted. No playable stream found for: '${track.name}'")
         null
     }
 
@@ -123,7 +130,10 @@ object TrackAudioResolver {
                     if (data != null && data.length() > 0) {
                         val first = data.getJSONObject(0)
                         val preview = first.optString("preview")
+                        val matchedTitle = first.optString("title")
+                        val matchedArtist = first.optJSONObject("artist")?.optString("name") ?: ""
                         if (!preview.isNullOrBlank() && preview.startsWith("http")) {
+                            Log.i(TAG, "[Deezer Match] Matched '$matchedArtist - $matchedTitle' -> preview: $preview")
                             return preview
                         }
                     }
@@ -154,7 +164,10 @@ object TrackAudioResolver {
                     if (results != null && results.length() > 0) {
                         val first = results.getJSONObject(0)
                         val preview = first.optString("previewUrl")
+                        val matchedTitle = first.optString("trackName")
+                        val matchedArtist = first.optString("artistName")
                         if (!preview.isNullOrBlank() && preview.startsWith("http")) {
+                            Log.i(TAG, "[iTunes Match] Matched '$matchedArtist - $matchedTitle' -> preview: $preview")
                             return preview
                         }
                     }

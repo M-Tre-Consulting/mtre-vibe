@@ -50,7 +50,7 @@ class Media3AudioPlayerImpl(
 ) : VibeAudioPlayer {
 
     companion object {
-        private const val TAG = "Media3AudioPlayer"
+        private const val TAG = "VIBE_PLAYER"
     }
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -106,6 +106,7 @@ class Media3AudioPlayerImpl(
         .build().apply {
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    Log.i(TAG, "ExoPlayer onIsPlayingChanged: isPlaying=$isPlaying (position=${currentPosition}ms, duration=${duration}ms)")
                     _playbackState.update { it.copy(isPlaying = isPlaying) }
                     if (isPlaying) {
                         ensureMediaServiceStarted()
@@ -113,6 +114,14 @@ class Media3AudioPlayerImpl(
                 }
 
                 override fun onPlaybackStateChanged(state: Int) {
+                    val stateName = when (state) {
+                        Player.STATE_IDLE -> "STATE_IDLE"
+                        Player.STATE_BUFFERING -> "STATE_BUFFERING"
+                        Player.STATE_READY -> "STATE_READY"
+                        Player.STATE_ENDED -> "STATE_ENDED"
+                        else -> "UNKNOWN($state)"
+                    }
+                    Log.i(TAG, "ExoPlayer onPlaybackStateChanged -> $stateName | isPlaying=$isPlaying | duration=${duration}ms")
                     _playbackState.update {
                         it.copy(
                             isBuffering = state == Player.STATE_BUFFERING,
@@ -122,6 +131,7 @@ class Media3AudioPlayerImpl(
                     }
 
                     if (state == Player.STATE_ENDED) {
+                        Log.i(TAG, "ExoPlayer track ended! RepeatMode: ${_playbackState.value.repeatMode}")
                         if (_playbackState.value.repeatMode == RepeatMode.ONE) {
                             seekTo(0L)
                             play()
@@ -137,12 +147,13 @@ class Media3AudioPlayerImpl(
                     reason: Int
                 ) {
                     if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                        Log.d(TAG, "ExoPlayer seek: ${oldPosition.positionMs}ms -> ${newPosition.positionMs}ms")
                         _playbackState.update { it.copy(positionMs = newPosition.positionMs) }
                     }
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.e(TAG, "Local ExoPlayer playback error: ${error.errorCodeName} - ${error.message}", error)
+                    Log.e(TAG, "ExoPlayer Error [${error.errorCodeName} / code ${error.errorCode}]: ${error.message}", error)
                     _playbackState.update {
                         it.copy(
                             isBuffering = false,
@@ -266,15 +277,17 @@ class Media3AudioPlayerImpl(
         }
 
         scope.launch {
+            Log.i(TAG, "Requesting audio stream resolution for '${track.name}'...")
             val resolvedUrl = TrackAudioResolver.resolveAudioUrl(track)
             if (!resolvedUrl.isNullOrBlank()) {
-                Log.d(TAG, "Playing track locally on device: ${track.name} from $resolvedUrl")
+                Log.i(TAG, "ExoPlayer loading stream for '${track.name}': $resolvedUrl")
                 val mediaItem = buildMediaItem(track, resolvedUrl)
                 exoPlayer.setMediaItem(mediaItem)
                 exoPlayer.prepare()
                 exoPlayer.play()
+                Log.i(TAG, "ExoPlayer prepare() & play() called successfully for '${track.name}'")
             } else {
-                Log.e(TAG, "Unable to resolve playable audio stream for ${track.name}")
+                Log.e(TAG, "Resolution failed! Unable to resolve playable audio stream for '${track.name}'")
                 _playbackState.update {
                     it.copy(
                         isBuffering = false,
@@ -288,6 +301,7 @@ class Media3AudioPlayerImpl(
             val nextIdx = currentTrackIndex + 1
             if (nextIdx < currentPlaylist.size) {
                 val nextTrack = currentPlaylist[nextIdx]
+                Log.d(TAG, "Prefetching next track in background: '${nextTrack.name}'")
                 launch(Dispatchers.IO) {
                     TrackAudioResolver.resolveAudioUrl(nextTrack)
                 }

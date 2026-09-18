@@ -31,13 +31,20 @@ class ConnectDeviceManager(
     private val serviceType = "_spotify-connect._tcp."
     private val discoveredMdnsDevices = mutableMapOf<String, Device>()
 
+    private val TAG = "VIBE_CONNECT"
+
     private val discoveryListener = object : NsdManager.DiscoveryListener {
-        override fun onDiscoveryStarted(regType: String) {}
+        override fun onDiscoveryStarted(regType: String) {
+            android.util.Log.i(TAG, "mDNS Spotify Connect discovery started: $regType")
+        }
 
         override fun onServiceFound(service: NsdServiceInfo) {
+            android.util.Log.d(TAG, "mDNS service found: ${service.serviceName} (${service.serviceType})")
             if (service.serviceType.contains("spotify-connect")) {
                 nsdManager?.resolveService(service, object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {}
+                    override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+                        android.util.Log.w(TAG, "mDNS resolve failed for ${serviceInfo?.serviceName}: error $errorCode")
+                    }
 
                     override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
                         val host = serviceInfo.host?.hostAddress
@@ -54,6 +61,7 @@ class ConnectDeviceManager(
                             mdnsHost = host,
                             mdnsPort = port
                         )
+                        android.util.Log.i(TAG, "mDNS Spotify Connect resolved: '$deviceName' at $host:$port")
 
                         synchronized(discoveredMdnsDevices) {
                             discoveredMdnsDevices[deviceId] = device
@@ -65,6 +73,7 @@ class ConnectDeviceManager(
         }
 
         override fun onServiceLost(service: NsdServiceInfo) {
+            android.util.Log.d(TAG, "mDNS service lost: ${service.serviceName}")
             val deviceId = "mdns_${service.serviceName.hashCode()}"
             synchronized(discoveredMdnsDevices) {
                 discoveredMdnsDevices.remove(deviceId)
@@ -72,13 +81,18 @@ class ConnectDeviceManager(
             }
         }
 
-        override fun onDiscoveryStopped(serviceType: String) {}
-        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {}
+        override fun onDiscoveryStopped(serviceType: String) {
+            android.util.Log.d(TAG, "mDNS discovery stopped")
+        }
+        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+            android.util.Log.w(TAG, "mDNS start discovery failed: error $errorCode")
+        }
         override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
     }
 
     fun startDiscovery() {
         runCatching {
+            android.util.Log.i(TAG, "Starting mDNS discovery for $serviceType...")
             nsdManager?.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
         }
     }
@@ -95,6 +109,8 @@ class ConnectDeviceManager(
      */
     fun syncWithWebApiDevices(webApiDevices: List<Device>) {
         scope.launch {
+            val names = webApiDevices.joinToString(", ") { "${it.name}${if (it.isActive) " (ACTIVE)" else ""}" }
+            android.util.Log.i(TAG, "Web API devices synced (${webApiDevices.size}): [$names]")
             val mergedMap = LinkedHashMap<String, Device>()
 
             // Put Web API devices
