@@ -45,10 +45,12 @@ import com.vibe.core.model.*
 fun MiniPlayerBar(
     playbackState: PlaybackState,
     modifier: Modifier = Modifier,
+    isLiked: Boolean = false,
     onPlayPause: () -> Unit = {},
     onSkipNext: () -> Unit = {},
     onBarClick: () -> Unit = {},
-    onArtistClick: (String) -> Unit = {}
+    onArtistClick: (String) -> Unit = {},
+    onToggleLike: () -> Unit = {}
 ) {
     val currentTrack = playbackState.currentTrack ?: return
 
@@ -201,6 +203,20 @@ fun MiniPlayerBar(
                         }
                     }
 
+                    IconButton(
+                        onClick = onToggleLike,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = stringResource(com.vibe.core.ui.R.string.player_favorite),
+                            tint = if (isLiked) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -220,7 +236,7 @@ fun MiniPlayerBar(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     IconButton(onClick = onSkipNext) {
                         Icon(
@@ -242,6 +258,7 @@ fun MiniPlayerBar(
 fun FullPlayerScreen(
     playbackState: PlaybackState,
     modifier: Modifier = Modifier,
+    isLiked: Boolean = false,
     onPlayPause: () -> Unit = {},
     onSkipNext: () -> Unit = {},
     onSkipPrevious: () -> Unit = {},
@@ -412,7 +429,7 @@ fun FullPlayerScreen(
                         PlayerBottomStrip(
                             shuffleEnabled = playbackState.shuffleEnabled,
                             repeatMode = playbackState.repeatMode,
-                            isLiked = track.isLiked,
+                            isLiked = isLiked,
                             onToggleShuffle = onToggleShuffle,
                             onToggleRepeat = onToggleRepeat,
                             onToggleLike = onToggleLike,
@@ -543,7 +560,7 @@ fun FullPlayerScreen(
                 PlayerBottomStrip(
                     shuffleEnabled = playbackState.shuffleEnabled,
                     repeatMode = playbackState.repeatMode,
-                    isLiked = track.isLiked,
+                    isLiked = isLiked,
                     onToggleShuffle = onToggleShuffle,
                     onToggleRepeat = onToggleRepeat,
                     onToggleLike = onToggleLike,

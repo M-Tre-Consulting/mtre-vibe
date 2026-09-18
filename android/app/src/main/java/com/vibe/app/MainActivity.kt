@@ -136,6 +136,37 @@ class MainActivity : ComponentActivity() {
             var selectedTrackForOptions by remember { mutableStateOf<Track?>(null) }
             var currentAlertMessage by remember { mutableStateOf<String?>(null) }
 
+            val toggleTrackLike: (Track) -> Unit = { track ->
+                val currentlyLiked = userLikedTracks.any { it.id == track.id }
+                val newLiked = !currentlyLiked
+                userLikedTracks = if (newLiked) {
+                    listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id == track.id }
+                } else {
+                    userLikedTracks.filterNot { it.id == track.id }
+                }
+                lifecycleScope.launch {
+                    apiService.setLiked(track.id, newLiked).onSuccess {
+                        Toast.makeText(
+                            this@MainActivity,
+                            if (newLiked) getString(com.vibe.core.ui.R.string.track_options_add_to_favorites)
+                            else getString(com.vibe.core.ui.R.string.track_options_remove_from_favorites),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }.onFailure { err ->
+                        userLikedTracks = if (currentlyLiked) {
+                            listOf(track.copy(isLiked = true)) + userLikedTracks.filterNot { it.id == track.id }
+                        } else {
+                            userLikedTracks.filterNot { it.id == track.id }
+                        }
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(com.vibe.core.ui.R.string.generic_error_format, err.message ?: ""),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+
             LaunchedEffect(Unit) {
                 audioPlayer.errorEvents.collect { errorMsg ->
                     currentAlertMessage = errorMsg
@@ -293,6 +324,7 @@ class MainActivity : ComponentActivity() {
                                             ) {
                                                 MiniPlayerBar(
                                                     playbackState = playbackState,
+                                                    isLiked = playbackState.currentTrack?.let { ct -> userLikedTracks.any { it.id == ct.id } } ?: false,
                                                     onPlayPause = {
                                                         if (playbackState.isPlaying) audioPlayer.pause()
                                                         else audioPlayer.resume()
@@ -305,6 +337,9 @@ class MainActivity : ComponentActivity() {
                                                                 apiService.getArtist(artistId).onSuccess { activeArtist = it }
                                                             }
                                                         }
+                                                    },
+                                                    onToggleLike = {
+                                                        playbackState.currentTrack?.let { toggleTrackLike(it) }
                                                     }
                                                 )
                                             }
@@ -649,6 +684,7 @@ class MainActivity : ComponentActivity() {
                                     SwipeDismissContainer(onDismiss = { isFullPlayerVisible = false }) {
                                         FullPlayerScreen(
                                             playbackState = playbackState,
+                                            isLiked = playbackState.currentTrack?.let { ct -> userLikedTracks.any { it.id == ct.id } } ?: false,
                                             onPlayPause = {
                                                 if (playbackState.isPlaying) audioPlayer.pause()
                                                 else audioPlayer.resume()
@@ -684,6 +720,9 @@ class MainActivity : ComponentActivity() {
                                                     RepeatMode.ONE -> RepeatMode.OFF
                                                 }
                                                 audioPlayer.setRepeatMode(next)
+                                            },
+                                            onToggleLike = {
+                                                playbackState.currentTrack?.let { toggleTrackLike(it) }
                                             }
                                         )
                                     }
@@ -959,32 +998,7 @@ class MainActivity : ComponentActivity() {
                                         addTrackToQueue(track)
                                     },
                                     onToggleLike = {
-                                        val newLiked = !isLiked
-                                        lifecycleScope.launch {
-                                            apiService.setLiked(track.id, newLiked).onSuccess {
-                                                if (newLiked) {
-                                                    userLikedTracks = listOf(track.copy(isLiked = true)) + userLikedTracks
-                                                    Toast.makeText(
-                                                        this@MainActivity,
-                                                        getString(com.vibe.core.ui.R.string.track_options_add_to_favorites),
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                } else {
-                                                    userLikedTracks = userLikedTracks.filterNot { it.id == track.id }
-                                                    Toast.makeText(
-                                                        this@MainActivity,
-                                                        getString(com.vibe.core.ui.R.string.track_options_remove_from_favorites),
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
-                                            }.onFailure { err ->
-                                                Toast.makeText(
-                                                    this@MainActivity,
-                                                    getString(com.vibe.core.ui.R.string.generic_error_format, err.message ?: ""),
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
+                                        toggleTrackLike(track)
                                     },
                                     onViewAlbum = {
                                         if (track.album.id.isNotBlank()) {
