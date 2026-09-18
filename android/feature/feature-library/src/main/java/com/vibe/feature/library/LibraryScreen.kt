@@ -49,6 +49,7 @@ fun LibraryScreen(
     playlists: List<Playlist> = emptyList(),
     albums: List<AlbumSummary> = emptyList(),
     likedTracks: List<Track> = emptyList(),
+    userAvatarUrl: String? = null,
     onOpenLikedSongs: () -> Unit = {},
     onPlaylistClick: (Playlist) -> Unit = {},
     onPlaylistDoubleClick: (Playlist) -> Unit = {},
@@ -65,7 +66,7 @@ fun LibraryScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // 1. Header: Big Bold "Libreria" + Settings Button
+        // 1. Header: Big Bold "Libreria" + Settings Button / Avatar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,13 +87,24 @@ fun LibraryScreen(
                 modifier = Modifier.size(42.dp),
                 onClick = onSettingsClick
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp)
+                if (!userAvatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = userAvatarUrl,
+                        contentDescription = "Profilo",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         }

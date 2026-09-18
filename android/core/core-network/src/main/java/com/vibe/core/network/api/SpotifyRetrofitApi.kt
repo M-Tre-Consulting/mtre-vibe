@@ -120,6 +120,9 @@ interface SpotifyRetrofitApi {
         @Query("device_id") deviceId: String? = null
     ): Response<Unit>
 
+    @GET("v1/me/player/queue")
+    suspend fun getQueue(): Response<QueueResponseDto>
+
     @GET("v1/me/player")
     suspend fun getPlaybackState(): Response<PlaybackResponseDto>
 

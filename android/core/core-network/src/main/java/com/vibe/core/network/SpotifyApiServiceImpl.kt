@@ -529,4 +529,31 @@ class SpotifyApiServiceImpl(
             }
         }
     }
+
+    override suspend fun getUserQueue(): Result<Queue> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.getQueue()
+            if (!resp.isSuccessful) {
+                throw IOException("Get queue error HTTP ${resp.code()}")
+            }
+            val body = resp.body()
+            val current = body?.currentlyPlaying?.toDomain()
+            val queuedTracks = body?.queue?.map { it.toDomain() } ?: emptyList()
+            Queue(
+                currentlyPlaying = current,
+                userQueue = queuedTracks
+            )
+        }
+    }
+
+    override suspend fun getCurrentUserProfile(): Result<com.vibe.core.network.model.UserProfileDto> = withContext(ioDispatcher) {
+        runCatching {
+            val resp = retrofitApi.getCurrentUser()
+            if (!resp.isSuccessful) {
+                throw IOException("Get current user error HTTP ${resp.code()}")
+            }
+            resp.body() ?: throw IOException("User profile body is null")
+        }
+    }
 }
+

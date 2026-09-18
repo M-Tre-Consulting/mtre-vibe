@@ -146,6 +146,9 @@ class RoutingAudioPlayerImpl(
             spotifyRemote.pause()
             activeEngine = ActiveEngine.CONNECT
             spotifyConnect.startPolling()
+            scope.launch {
+                spotifyConnect.syncRemotePlaybackState()
+            }
             _playbackState.value = spotifyConnect.playbackState.value
         }
     }

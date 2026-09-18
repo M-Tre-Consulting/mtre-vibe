@@ -38,10 +38,13 @@ import com.vibe.core.model.Album
 import com.vibe.core.model.AlbumSummary
 import com.vibe.core.model.Artist
 import com.vibe.core.model.Playlist
+import com.vibe.core.model.Queue
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import com.vibe.core.network.DualSearchManager
 import com.vibe.core.network.SpotifyApiService
+import com.vibe.core.network.model.UserProfileDto
+import com.vibe.feature.queue.QueueScreen
 import com.vibe.core.network.auth.AuthState
 import com.vibe.core.network.auth.SpotifyAuthConfig
 import com.vibe.core.network.auth.SpotifyAuthManager
@@ -100,6 +103,10 @@ class MainActivity : ComponentActivity() {
             var isFullPlayerVisible by remember { mutableStateOf(false) }
             var isDevicesDialogVisible by remember { mutableStateOf(false) }
             var isSettingsDialogVisible by remember { mutableStateOf(false) }
+            var isQueueVisible by remember { mutableStateOf(false) }
+
+            var userProfile by remember { mutableStateOf<UserProfileDto?>(null) }
+            var currentQueue by remember { mutableStateOf<Queue?>(null) }
 
             var activeArtist by remember { mutableStateOf<Artist?>(null) }
             var activeAlbum by remember { mutableStateOf<Album?>(null) }
@@ -110,6 +117,9 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(authState) {
                 if (authState is AuthState.Authenticated) {
+                    apiService.getCurrentUserProfile().onSuccess { profile ->
+                        userProfile = profile
+                    }
                     apiService.getCurrentUserPlaylists().onSuccess { pls ->
                         userPlaylists = pls
                     }
@@ -118,6 +128,15 @@ class MainActivity : ComponentActivity() {
                     }
                     apiService.getUserSavedAlbums(50, 0).onSuccess { albums ->
                         userSavedAlbums = albums
+                    }
+                    checkAndAutoConnectActiveDevice()
+                }
+            }
+
+            LaunchedEffect(isQueueVisible, playbackState.currentTrack) {
+                if (isQueueVisible) {
+                    apiService.getUserQueue().onSuccess { q ->
+                        currentQueue = q
                     }
                 }
             }
@@ -375,6 +394,7 @@ class MainActivity : ComponentActivity() {
                                              "home" -> HomeScreen(
                                                  playlists = userPlaylists,
                                                  recentTracks = userLikedTracks,
+                                                 userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
                                                  onPlaylistClick = { playlistId ->
                                                      lifecycleScope.launch {
                                                          apiService.getPlaylist(playlistId).onSuccess { p ->
@@ -412,6 +432,7 @@ class MainActivity : ComponentActivity() {
                                                  playlists = userPlaylists,
                                                  albums = userSavedAlbums,
                                                  likedTracks = userLikedTracks,
+                                                 userAvatarUrl = userProfile?.images?.firstOrNull()?.url,
                                                  onSettingsClick = { isSettingsDialogVisible = true },
                                                  onOpenLikedSongs = {
                                                      activePlaylist = Playlist(
@@ -505,6 +526,14 @@ class MainActivity : ComponentActivity() {
                                         onSeekTo = { pos -> audioPlayer.seekTo(pos) },
                                         onClose = { isFullPlayerVisible = false },
                                         onOpenDevices = { isDevicesDialogVisible = true },
+                                        onOpenQueue = {
+                                            isQueueVisible = true
+                                            lifecycleScope.launch {
+                                                apiService.getUserQueue().onSuccess { q ->
+                                                    currentQueue = q
+                                                }
+                                            }
+                                        },
                                         onArtistClick = { artistId ->
                                             isFullPlayerVisible = false
                                             lifecycleScope.launch {
@@ -519,6 +548,46 @@ class MainActivity : ComponentActivity() {
                                                 RepeatMode.ONE -> RepeatMode.OFF
                                             }
                                             audioPlayer.setRepeatMode(next)
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Queue Screen Modal
+                            AnimatedVisibility(
+                                visible = isQueueVisible,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(animationSpec = androidx.compose.animation.core.tween(250)),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(animationSpec = androidx.compose.animation.core.tween(200))
+                            ) {
+                                BackHandler { isQueueVisible = false }
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .statusBarsPadding()
+                                        .navigationBarsPadding(),
+                                    color = MaterialTheme.colorScheme.background
+                                ) {
+                                    val queueToDisplay = currentQueue ?: Queue(
+                                        currentlyPlaying = playbackState.currentTrack,
+                                        contextQueue = activePlaylist?.tracks ?: activeAlbum?.tracks ?: emptyList()
+                                    )
+                                    QueueScreen(
+                                        queue = queueToDisplay,
+                                        onClose = { isQueueVisible = false },
+                                        onTrackClick = { track ->
+                                            playLocalTrack(track)
                                         }
                                     )
                                 }
@@ -614,6 +683,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkAndAutoConnectActiveDevice() {
+        lifecycleScope.launch {
+            try {
+                val stateResult = apiService.getPlaybackState()
+                stateResult.onSuccess { state ->
+                    val activeDev = state?.activeDevice
+                    if (state != null && state.isPlaying && activeDev != null) {
+                        val phoneModel = android.os.Build.MODEL
+                        val isRemote = activeDev.name != phoneModel
+                        if (isRemote) {
+                            android.util.Log.i(
+                                "VIBE_CONNECT",
+                                "Auto-connecting to active remote Spotify session on '${activeDev.name}' (ID: ${activeDev.id})"
+                            )
+                            settingsManager.setPlaybackMode(PlaybackMode.CONNECT)
+                            (audioPlayer as? RoutingAudioPlayerImpl)?.switchToConnect(activeDev.id)
+                        }
+                    }
+                }.onFailure { err ->
+                    android.util.Log.d("VIBE_CONNECT", "Playback state check on startup: ${err.message}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VIBE_CONNECT", "Error checking active playback session on startup", e)
+            }
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         connectDeviceManager.startDiscovery()
@@ -622,6 +718,7 @@ class MainActivity : ComponentActivity() {
                 connectDeviceManager.syncWithWebApiDevices(devs)
             }
         }
+        checkAndAutoConnectActiveDevice()
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
             if (settings.playbackMode == PlaybackMode.SPOTIFY_REMOTE && spotifyAppRemoteManager.isSpotifyInstalled()) {

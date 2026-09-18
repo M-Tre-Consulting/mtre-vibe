@@ -34,6 +34,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     playlists: List<Playlist> = emptyList(),
     recentTracks: List<Track> = emptyList(),
+    userAvatarUrl: String? = null,
     onPlaylistClick: (String) -> Unit = {},
     onTrackClick: (Track, List<Track>) -> Unit = { _, _ -> },
     onSettingsClick: () -> Unit = {}
@@ -76,13 +77,24 @@ fun HomeScreen(
                     modifier = Modifier.size(40.dp),
                     onClick = onSettingsClick
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(22.dp)
+                    if (!userAvatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = userAvatarUrl,
+                            contentDescription = "Profilo",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profilo",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
             }

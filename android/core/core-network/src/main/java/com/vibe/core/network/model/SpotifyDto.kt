@@ -189,6 +189,13 @@ data class PlaybackResponseDto(
     @SerialName("currently_playing_type") val currentlyPlayingType: String? = "track"
 )
 
+@Serializable
+data class QueueResponseDto(
+    @SerialName("currently_playing") val currentlyPlaying: TrackDto? = null,
+    val queue: List<TrackDto> = emptyList()
+)
+
+
 // Mapping extensions to Domain models
 fun TrackDto.toDomain(addedAtTimestamp: Long? = null, isLiked: Boolean = false): Track {
     val albumSummary = album?.let {

@@ -59,51 +59,66 @@ fun QueueScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // User-added queue (inserted before context tracks)
-            if (queue.userQueue.isNotEmpty()) {
-                item {
-                    Text(
-                        androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_next),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                items(queue.userQueue) { track ->
-                    TrackRow(track = track, onClick = { onTrackClick(track) })
-                }
+        if (queue.currentlyPlaying == null && queue.userQueue.isEmpty() && queue.contextQueue.isEmpty() && queue.recentHistory.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 64.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Nessun brano in coda",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // User-added queue (inserted before context tracks)
+                if (queue.userQueue.isNotEmpty()) {
+                    item {
+                        Text(
+                            androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_next),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    items(queue.userQueue) { track ->
+                        TrackRow(track = track, onClick = { onTrackClick(track) })
+                    }
+                }
 
-            // Context tracks (from current album/playlist)
-            if (queue.contextQueue.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        androidx.compose.ui.res.stringResource(
-                            com.vibe.core.ui.R.string.queue_next_from,
-                            queue.contextName ?: ""
-                        ),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                // Context tracks (from current album/playlist)
+                if (queue.contextQueue.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            androidx.compose.ui.res.stringResource(
+                                com.vibe.core.ui.R.string.queue_next_from,
+                                queue.contextName ?: ""
+                            ),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    items(queue.contextQueue) { track ->
+                        TrackRow(track = track, onClick = { onTrackClick(track) })
+                    }
                 }
-                items(queue.contextQueue) { track ->
-                    TrackRow(track = track, onClick = { onTrackClick(track) })
-                }
-            }
 
-            // Recent history (short-song repeats separate)
-            if (queue.recentHistory.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_history),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                items(queue.recentHistory) { record ->
-                    TrackRow(track = record.track, onClick = { onTrackClick(record.track) })
+                // Recent history (short-song repeats separate)
+                if (queue.recentHistory.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.queue_history),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    items(queue.recentHistory) { record ->
+                        TrackRow(track = record.track, onClick = { onTrackClick(record.track) })
+                    }
                 }
             }
         }
