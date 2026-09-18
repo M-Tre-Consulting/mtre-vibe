@@ -59,17 +59,17 @@ class RoutingAudioPlayerImpl(
         // Forward error events from all sub-players
         scope.launch {
             spotifyRemote.errorEvents.collect { err ->
-                _errorEvents.emit(err)
+                _errorEvents.emit(cleanPlaybackError(err))
             }
         }
         scope.launch {
             spotifyConnect.errorEvents.collect { err ->
-                _errorEvents.emit(err)
+                _errorEvents.emit(cleanPlaybackError(err))
             }
         }
         scope.launch {
             exoPlayer.errorEvents.collect { err ->
-                _errorEvents.emit(err)
+                _errorEvents.emit(cleanPlaybackError(err))
             }
         }
 
@@ -101,6 +101,24 @@ class RoutingAudioPlayerImpl(
         }
     }
 
+    private fun cleanPlaybackError(raw: String): String {
+        if (raw.contains("Explicit user authorization is required", ignoreCase = true)) {
+            return "Autorizzazione Spotify richiesta: l'app Spotify sul tablet non autorizza la riproduzione IPC. Seleziona il tuo PC da Dispositivi."
+        }
+        if (raw.contains("NO_ACTIVE_DEVICE", ignoreCase = true) || raw.contains("No active device", ignoreCase = true)) {
+            return "Nessun dispositivo attivo: apri Spotify sul PC o selezionalo dall'icona Dispositivi."
+        }
+        if (raw.contains("Timeout", ignoreCase = true)) {
+            return "Timeout risposta da Spotify: verifica che il dispositivo sia acceso e connesso."
+        }
+        val jsonRegex = Regex("""\{.*"message"\s*:\s*"([^"]+)".*\}""")
+        val match = jsonRegex.find(raw)
+        if (match != null) {
+            return "Errore Spotify: ${match.groupValues[1]}"
+        }
+        return raw
+    }
+
     override fun playTrack(track: Track, contextTracks: List<Track>) {
         scope.launch {
             val settings = settingsManager.settingsFlow.first()
@@ -112,7 +130,7 @@ class RoutingAudioPlayerImpl(
                     switchToConnect()
                     val result = spotifyConnect.playTrackWithResult(track, contextTracks)
                     if (result.isFailure) {
-                        val errMsg = result.exceptionOrNull()?.message ?: "Errore Spotify Connect"
+                        val errMsg = cleanPlaybackError(result.exceptionOrNull()?.message ?: "Errore Spotify Connect")
                         if (settings.autoFallbackEnabled) {
                             val msg = "Spotify Connect non risponde ($errMsg). Avvio riproduzione locale..."
                             Log.w(TAG, msg)
@@ -135,23 +153,46 @@ class RoutingAudioPlayerImpl(
                         switchToSpotifyRemote()
                         val result = spotifyRemote.playTrackWithResult(track, contextTracks)
                         if (result.isFailure) {
-                            val errMsg = result.exceptionOrNull()?.message ?: "Spotify App non risponde"
+                            val rawErr = result.exceptionOrNull()?.message ?: "Spotify App non risponde"
+                            val errMsg = cleanPlaybackError(rawErr)
+                            Log.w(TAG, "Spotify App Remote failed: $errMsg")
+
                             if (settings.autoFallbackEnabled) {
-                                val msg = "Spotify App non risponde ($errMsg). Avvio riproduzione locale..."
-                                Log.w(TAG, msg)
-                                _errorEvents.emit(msg)
-                                switchToExoPlayer()
-                                exoPlayer.playTrack(track, contextTracks)
+                                // 1. Attempt fallback to Spotify Connect if a remote device (e.g. PC 'arbeitspeitz') is known
+                                Log.i(TAG, "Attempting fallback to Spotify Connect...")
+                                switchToConnect()
+                                val connectResult = spotifyConnect.playTrackWithResult(track, contextTracks)
+                                if (connectResult.isSuccess) {
+                                    val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "PC"
+                                    val fallbackMsg = "App Spotify locale non autorizzata. Riproduzione avviata su $targetName via Spotify Connect."
+                                    Log.i(TAG, fallbackMsg)
+                                    _errorEvents.emit(fallbackMsg)
+                                } else {
+                                    // 2. If Connect also fails, fallback to ExoPlayer local engine
+                                    val fallbackMsg = "Spotify locale non disponibile ($errMsg). Avvio riproduzione locale..."
+                                    Log.w(TAG, fallbackMsg)
+                                    _errorEvents.emit(fallbackMsg)
+                                    switchToExoPlayer()
+                                    exoPlayer.playTrack(track, contextTracks)
+                                }
                             } else {
                                 _errorEvents.emit("Spotify App Remote: $errMsg")
                             }
                         }
                     } else if (settings.autoFallbackEnabled) {
-                        val msg = "App Spotify non installata. Avvio riproduzione locale..."
-                        Log.i(TAG, msg)
-                        _errorEvents.emit(msg)
-                        switchToExoPlayer()
-                        exoPlayer.playTrack(track, contextTracks)
+                        // Spotify app not installed -> try Connect first, then ExoPlayer
+                        switchToConnect()
+                        val connectResult = spotifyConnect.playTrackWithResult(track, contextTracks)
+                        if (connectResult.isSuccess) {
+                            val targetName = spotifyConnect.playbackState.value.activeDevice?.name ?: "PC"
+                            _errorEvents.emit("Riproduzione avviata su $targetName via Spotify Connect.")
+                        } else {
+                            val msg = "App Spotify non installata. Avvio riproduzione locale..."
+                            Log.i(TAG, msg)
+                            _errorEvents.emit(msg)
+                            switchToExoPlayer()
+                            exoPlayer.playTrack(track, contextTracks)
+                        }
                     } else {
                         val msg = "App Spotify non installata su questo dispositivo"
                         Log.w(TAG, msg)

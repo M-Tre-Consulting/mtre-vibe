@@ -12,20 +12,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -128,10 +132,19 @@ class MainActivity : ComponentActivity() {
             var userLikedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
             var userSavedAlbums by remember { mutableStateOf<List<AlbumSummary>>(emptyList()) }
             var selectedTrackForOptions by remember { mutableStateOf<Track?>(null) }
+            var currentAlertMessage by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(Unit) {
                 audioPlayer.errorEvents.collect { errorMsg ->
-                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
+                    currentAlertMessage = errorMsg
+                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            LaunchedEffect(currentAlertMessage) {
+                if (currentAlertMessage != null) {
+                    delay(8000)
+                    currentAlertMessage = null
                 }
             }
 
@@ -228,7 +241,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         is AuthState.Authenticated -> {
-                            Scaffold(
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Scaffold(
                                 bottomBar = {
                                     val isAnyModalVisible = isFullPlayerVisible || isQueueVisible || isLyricsVisible || isSettingsDialogVisible || isDevicesDialogVisible || selectedTrackForOptions != null
                                     AnimatedVisibility(
@@ -900,7 +914,75 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+
+                            // Top Error / Alert Banner Overlay (Clear, readable, actionable)
+                            AnimatedVisibility(
+                                visible = currentAlertMessage != null,
+                                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .statusBarsPadding()
+                                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                            ) {
+                                currentAlertMessage?.let { alertText ->
+                                    Surface(
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        tonalElevation = 8.dp,
+                                        shadowElevation = 10.dp,
+                                        modifier = Modifier.fillMaxWidth(0.94f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = alertText,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            TextButton(
+                                                onClick = {
+                                                    isDevicesDialogVisible = true
+                                                    currentAlertMessage = null
+                                                },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.error
+                                                )
+                                            ) {
+                                                Text(
+                                                    stringResource(com.vibe.core.ui.R.string.devices_title),
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { currentAlertMessage = null },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Chiudi",
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    }
                     }
                 }
             }
@@ -944,6 +1026,15 @@ class MainActivity : ComponentActivity() {
             // 2. Fetch current playback state
             val playbackResult = apiService.getPlaybackState()
             val state = playbackResult.getOrNull()
+
+            // Ensure targetDeviceId is set if any remote device (e.g. PC 'arbeitspeitz') is present
+            val remoteDevice = state?.activeDevice?.takeIf { it.isRemote }
+                ?: webApiDevices.firstOrNull { it.isActive && it.isRemote }
+                ?: webApiDevices.firstOrNull { it.isRemote }
+
+            if (remoteDevice != null) {
+                (audioPlayer as? RoutingAudioPlayerImpl)?.spotifyConnect?.targetDeviceId = remoteDevice.id
+            }
 
             val activeDevice = state?.activeDevice ?: webApiDevices.firstOrNull { it.isActive }
 

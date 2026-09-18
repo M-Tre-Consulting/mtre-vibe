@@ -326,18 +326,19 @@ fun FullPlayerScreen(
                     horizontalArrangement = Arrangement.spacedBy(32.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left Column: Artwork (fits height, perfect square, no cropping)
-                    Box(
+                    // Left Column: Artwork (fits both width and height, perfect square, never overflows)
+                    BoxWithConstraints(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight(),
                         contentAlignment = Alignment.Center
                     ) {
+                        val artSize = minOf(maxWidth * 0.95f, maxHeight * 0.85f)
                         PlayerArtwork(
                             imageUrl = track.album.imageUrl,
                             trackId = track.id,
                             albumName = track.album.name,
-                            modifier = Modifier.fillMaxHeight(0.92f)
+                            modifier = Modifier.size(artSize)
                         )
                     }
 
@@ -448,18 +449,19 @@ fun FullPlayerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 2. Large Album Artwork (Square, constrained by weight and height)
-                Box(
+                // 2. Large Album Artwork (Square, strictly constrained to viewport bounds)
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
+                    val artSize = minOf(maxWidth * 0.90f, maxHeight * 0.90f)
                     PlayerArtwork(
                         imageUrl = track.album.imageUrl,
                         trackId = track.id,
                         albumName = track.album.name,
-                        modifier = Modifier.fillMaxHeight(0.92f)
+                        modifier = Modifier.size(artSize)
                     )
                 }
 
@@ -651,7 +653,7 @@ private fun PlayerArtwork(
         label = "FullPlayerArtwork"
     ) { (coverArt, _) ->
         Card(
-            modifier = modifier.aspectRatio(1f, matchHeightConstraintsFirst = true),
+            modifier = modifier.aspectRatio(1f),
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
