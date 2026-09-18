@@ -95,7 +95,6 @@ class MainActivity : ComponentActivity() {
     private val connectDeviceManager: ConnectDeviceManager by inject()
     private val searchManager: DualSearchManager by inject()
     private val settingsManager: SettingsManager by inject()
-    private var currentQueue by mutableStateOf<Queue?>(null)
 
     @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,6 +111,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val authState by authManager.authState.collectAsState(initial = AuthState.Loading)
             val playbackState by audioPlayer.playbackState.collectAsState()
+            val currentQueue by audioPlayer.queue.collectAsState()
             val devices by connectDeviceManager.devices.collectAsState()
             val vibeSettings by settingsManager.settingsFlow.collectAsState(initial = VibeSettings())
 
@@ -217,36 +217,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LaunchedEffect(isQueueVisible, playbackState.currentTrack) {
+            LaunchedEffect(isQueueVisible) {
                 val routingPlayer = audioPlayer as? RoutingAudioPlayerImpl
                 if (routingPlayer?.activeEngine == RoutingAudioPlayerImpl.ActiveEngine.CONNECT) {
-                    if (isQueueVisible) {
+                    if (isQueueVisible && currentQueue.userQueue.isEmpty() && currentQueue.contextQueue.isEmpty()) {
                         apiService.getUserQueue().onSuccess { q ->
-                            currentQueue = q
-                        }
-                    }
-                } else {
-                    val current = playbackState.currentTrack
-                    if (current != null) {
-                        val q = currentQueue
-                        if (q != null && q.currentlyPlaying?.id != current.id) {
-                            currentQueue = if (q.userQueue.isNotEmpty() && q.userQueue.first().id == current.id) {
-                                q.copy(
-                                    currentlyPlaying = current,
-                                    userQueue = q.userQueue.drop(1)
-                                )
-                            } else if (q.contextQueue.isNotEmpty() && q.contextQueue.first().id == current.id) {
-                                q.copy(
-                                    currentlyPlaying = current,
-                                    contextQueue = q.contextQueue.drop(1)
-                                )
-                            } else {
-                                q.copy(
-                                    currentlyPlaying = current,
-                                    userQueue = q.userQueue.filterNot { it.id == current.id },
-                                    contextQueue = q.contextQueue.filterNot { it.id == current.id }
-                                )
-                            }
+                            routingPlayer.queueManager.setQueue(q)
                         }
                     }
                 }
@@ -697,10 +673,11 @@ class MainActivity : ComponentActivity() {
                                             onOpenQueue = {
                                                 isQueueVisible = true
                                                 val routingPlayer = audioPlayer as? RoutingAudioPlayerImpl
-                                                if (routingPlayer?.activeEngine == RoutingAudioPlayerImpl.ActiveEngine.CONNECT) {
+                                                if (routingPlayer?.activeEngine == RoutingAudioPlayerImpl.ActiveEngine.CONNECT &&
+                                                    currentQueue.userQueue.isEmpty() && currentQueue.contextQueue.isEmpty()) {
                                                     lifecycleScope.launch {
                                                         apiService.getUserQueue().onSuccess { q ->
-                                                            currentQueue = q
+                                                            routingPlayer.queueManager.setQueue(q)
                                                         }
                                                     }
                                                 }
@@ -795,65 +772,21 @@ class MainActivity : ComponentActivity() {
                                         .navigationBarsPadding(),
                                     color = MaterialTheme.colorScheme.background
                                 ) {
-                                    val queueToDisplay = currentQueue ?: Queue(
-                                        currentlyPlaying = playbackState.currentTrack,
-                                        contextQueue = activePlaylist?.tracks ?: activeAlbum?.tracks ?: emptyList()
-                                    )
                                     QueueScreen(
-                                        queue = queueToDisplay,
+                                        queue = currentQueue,
                                         onClose = { isQueueVisible = false },
                                         onTrackClick = { track ->
-                                            val upcomingList = if (queueToDisplay.userQueue.isNotEmpty()) queueToDisplay.userQueue else queueToDisplay.contextQueue
-                                            val remaining = upcomingList.dropWhile { it.id != track.id }
-                                            currentQueue = queueToDisplay.copy(
-                                                userQueue = queueToDisplay.userQueue.filterNot { it.id == track.id },
-                                                contextQueue = queueToDisplay.contextQueue.filterNot { it.id == track.id }
-                                            )
-                                            playLocalTrack(track, remaining)
+                                            audioPlayer.playQueueItem(track)
                                         },
                                         onRemoveFromQueue = { track ->
-                                            val baseQueue = currentQueue ?: queueToDisplay
-                                            if (baseQueue.userQueue.isNotEmpty()) {
-                                                val removeIdx = baseQueue.userQueue.indexOfFirst { it.id == track.id }
-                                                currentQueue = baseQueue.copy(
-                                                    userQueue = baseQueue.userQueue.filterNot { it.id == track.id }
-                                                )
-                                                if (removeIdx != -1) {
-                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.removeQueueItem(removeIdx)
-                                                }
-                                            } else {
-                                                val removeIdx = baseQueue.contextQueue.indexOfFirst { it.id == track.id }
-                                                currentQueue = baseQueue.copy(
-                                                    contextQueue = baseQueue.contextQueue.filterNot { it.id == track.id }
-                                                )
-                                                if (removeIdx != -1) {
-                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.removeQueueItem(removeIdx)
-                                                }
-                                            }
+                                            audioPlayer.removeQueueItem(track)
                                         },
                                         onMoveQueueItem = { fromIndex, toIndex ->
-                                            val baseQueue = currentQueue ?: queueToDisplay
-                                            if (baseQueue.userQueue.isNotEmpty()) {
-                                                val list = baseQueue.userQueue.toMutableList()
-                                                if (fromIndex in list.indices && toIndex in list.indices) {
-                                                    val item = list.removeAt(fromIndex)
-                                                    list.add(toIndex, item)
-                                                    currentQueue = baseQueue.copy(userQueue = list)
-                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.moveQueueItem(fromIndex, toIndex)
-                                                }
-                                            } else if (baseQueue.contextQueue.isNotEmpty()) {
-                                                val list = baseQueue.contextQueue.toMutableList()
-                                                if (fromIndex in list.indices && toIndex in list.indices) {
-                                                    val item = list.removeAt(fromIndex)
-                                                    list.add(toIndex, item)
-                                                    currentQueue = baseQueue.copy(contextQueue = list)
-                                                    (audioPlayer as? RoutingAudioPlayerImpl)?.moveQueueItem(fromIndex, toIndex)
-                                                }
-                                            }
+                                            val hasUserQueue = currentQueue.userQueue.isNotEmpty()
+                                            audioPlayer.moveQueueItem(fromIndex, toIndex, isUserQueue = hasUserQueue)
                                         },
                                         onClearQueue = {
-                                            val baseQueue = currentQueue ?: queueToDisplay
-                                            currentQueue = baseQueue.copy(userQueue = emptyList(), contextQueue = emptyList())
+                                            audioPlayer.clearQueue()
                                         }
                                     )
                                 }
@@ -1144,12 +1077,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val settings = settingsManager.settingsFlow.first()
             android.util.Log.i("VIBE_PLAYBACK", ">>> Play Track Clicked: '${track.name}' by '${track.artists.firstOrNull()?.name}' (URI: ${track.uri}) | Mode: ${settings.playbackMode}")
-            val upcoming = contextTracks.dropWhile { it.id != track.id }.drop(1)
-            currentQueue = Queue(
-                currentlyPlaying = track,
-                userQueue = emptyList(),
-                contextQueue = upcoming
-            )
             audioPlayer.playTrack(track, contextTracks)
         }
     }
@@ -1163,12 +1090,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             android.util.Log.i("VIBE_PLAYBACK", ">>> Add to Queue Clicked: '${track.name}' (URI: ${track.uri})")
             audioPlayer.addToQueue(track)
-            val baseQueue = currentQueue ?: Queue(
-                currentlyPlaying = (audioPlayer as? RoutingAudioPlayerImpl)?.playbackState?.value?.currentTrack,
-                userQueue = emptyList(),
-                contextQueue = emptyList()
-            )
-            currentQueue = baseQueue.copy(userQueue = baseQueue.userQueue + track)
             android.widget.Toast.makeText(
                 this@MainActivity,
                 getString(com.vibe.core.ui.R.string.queue_added_toast) + ": " + track.name,

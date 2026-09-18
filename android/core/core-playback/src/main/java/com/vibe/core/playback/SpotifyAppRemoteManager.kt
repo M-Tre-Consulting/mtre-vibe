@@ -415,18 +415,6 @@ class SpotifyAppRemoteManager(
                         _playbackState.update { it.copy(isBuffering = false, isPlaying = true) }
                         // Ensure active playback if Spotify initialized in paused state
                         remote.playerApi.resume()
-                        // Queue upcoming context tracks sequentially with delay
-                        val nextTracks = contextTracks.dropWhile { it.id != track.id }.drop(1).take(5)
-                        if (nextTracks.isNotEmpty()) {
-                            scope.launch {
-                                delay(1000)
-                                for (t in nextTracks) {
-                                    val nextUri = if (t.uri.startsWith("spotify:track:")) t.uri else "spotify:track:${t.id}"
-                                    remote.playerApi.queue(nextUri)
-                                    delay(250)
-                                }
-                            }
-                        }
                         if (cont.isActive) cont.resume(Result.success(Unit))
                     }
                     .setErrorCallback { err ->

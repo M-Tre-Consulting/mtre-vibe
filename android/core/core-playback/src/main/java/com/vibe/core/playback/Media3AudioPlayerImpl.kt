@@ -90,6 +90,10 @@ class Media3AudioPlayerImpl(
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
+    var onSkipNextCallback: (() -> Unit)? = null
+    var onSkipPreviousCallback: (() -> Unit)? = null
+    var onTrackEndedCallback: (() -> Unit)? = null
+
     private val exoPlayer: ExoPlayer = ExoPlayer.Builder(context)
         .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
         .setAudioAttributes(
@@ -142,7 +146,7 @@ class Media3AudioPlayerImpl(
                             seekTo(0L)
                             play()
                         } else {
-                            skipToNext()
+                            onTrackEndedCallback?.invoke() ?: skipToNext()
                         }
                     }
                 }
@@ -190,19 +194,19 @@ class Media3AudioPlayerImpl(
         }
 
         override fun seekToNext() {
-            skipToNext()
+            onSkipNextCallback?.invoke() ?: skipToNext()
         }
 
         override fun seekToNextMediaItem() {
-            skipToNext()
+            onSkipNextCallback?.invoke() ?: skipToNext()
         }
 
         override fun seekToPrevious() {
-            skipToPrevious()
+            onSkipPreviousCallback?.invoke() ?: skipToPrevious()
         }
 
         override fun seekToPreviousMediaItem() {
-            skipToPrevious()
+            onSkipPreviousCallback?.invoke() ?: skipToPrevious()
         }
     }
 

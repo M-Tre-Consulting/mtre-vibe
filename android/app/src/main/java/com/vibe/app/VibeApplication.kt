@@ -7,6 +7,7 @@ import com.vibe.core.network.SpotifyApiService
 import com.vibe.core.network.SpotifyClientFactory
 import com.vibe.core.network.auth.SpotifyAuthManager
 import com.vibe.core.playback.Media3AudioPlayerImpl
+import com.vibe.core.playback.QueueManager
 import com.vibe.core.playback.RoutingAudioPlayerImpl
 import com.vibe.core.playback.SettingsManager
 import com.vibe.core.playback.SpotifyAppRemoteManager
@@ -61,12 +62,15 @@ val appModule = module {
         )
     }
 
+    single { QueueManager() }
+
     single<VibeAudioPlayer> {
         RoutingAudioPlayerImpl(
             context = get(),
             exoPlayer = get(),
             spotifyRemote = get(),
             spotifyConnect = get(),
+            queueManager = get(),
             settingsManager = get()
         )
     }

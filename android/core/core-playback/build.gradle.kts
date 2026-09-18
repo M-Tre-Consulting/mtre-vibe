@@ -19,6 +19,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -41,4 +45,6 @@ dependencies {
     // Spotify App Remote SDK (IPC via official Spotify app)
     api(files("libs/spotify-app-remote-release-0.8.0.jar"))
     implementation("com.google.code.gson:gson:2.10.1")
+
+    testImplementation(libs.junit)
 }

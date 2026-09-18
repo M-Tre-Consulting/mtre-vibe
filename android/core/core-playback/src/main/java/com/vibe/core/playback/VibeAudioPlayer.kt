@@ -1,14 +1,19 @@
 package com.vibe.core.playback
 
 import com.vibe.core.model.PlaybackState
+import com.vibe.core.model.Queue
 import com.vibe.core.model.RepeatMode
 import com.vibe.core.model.Track
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 interface VibeAudioPlayer {
     val playbackState: StateFlow<PlaybackState>
     val errorEvents: Flow<String>
+    val queue: StateFlow<Queue>
+        get() = MutableStateFlow(Queue()).asStateFlow()
 
     /**
      * Prepares and starts playback of a track with instant metadata display
@@ -49,6 +54,11 @@ interface VibeAudioPlayer {
      * Appends a track to the active player queue.
      */
     fun addToQueue(track: Track)
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int, isUserQueue: Boolean = true) {}
+    fun removeQueueItem(track: Track) {}
+    fun clearQueue() {}
+    fun playQueueItem(track: Track) {}
 
     /**
      * Restores the last paused session on startup without auto-playing.
