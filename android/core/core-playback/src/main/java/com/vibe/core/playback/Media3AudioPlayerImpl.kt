@@ -163,7 +163,11 @@ class Media3AudioPlayerImpl(
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    val msg = "Errore riproduzione ExoPlayer [${error.errorCodeName}]: ${error.message}"
+                    val msg = context.getString(
+                        com.vibe.core.ui.R.string.playback_error_exoplayer_format,
+                        error.errorCodeName,
+                        error.message ?: ""
+                    )
                     Log.e(TAG, msg, error)
                     _playbackState.update {
                         it.copy(
@@ -302,7 +306,7 @@ class Media3AudioPlayerImpl(
                 exoPlayer.play()
                 Log.i(TAG, "ExoPlayer prepare() & play() called successfully for '${track.name}'")
             } else {
-                val msg = "Impossibile trovare uno stream audio per '${track.name}' (nessuna sorgente trovata)."
+                val msg = context.getString(com.vibe.core.ui.R.string.playback_error_no_stream, track.name)
                 Log.e(TAG, "Resolution failed! $msg")
                 _playbackState.update {
                     it.copy(

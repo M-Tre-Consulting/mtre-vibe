@@ -58,7 +58,8 @@ val appModule = module {
 
     single {
         SpotifyConnectPlayerImpl(
-            apiService = get()
+            apiService = get(),
+            context = get()
         )
     }
 

@@ -207,4 +207,30 @@
     <string name="playlist_owner_you">Tu</string>
     <string name="generic_error_format">Errore: %s</string>
     <string name="invalid_client_id">Client ID non valido</string>
+
+    <!-- Greetings -->
+    <string name="home_greeting_morning">Buongiorno</string>
+    <string name="home_greeting_afternoon">Buon pomeriggio</string>
+    <string name="home_greeting_evening">Buonasera</string>
+
+    <!-- Home filter pills -->
+    <string name="home_filter_all">Tutto</string>
+    <string name="home_filter_music">Musica</string>
+    <string name="home_filter_podcasts">Podcast</string>
+
+    <!-- Playlist & Track info format -->
+    <string name="playlist_by_owner_songs_count">Di %1$s • %2$d brani</string>
+    <string name="share_track_format">Ascolta \"%1$s\" di %2$s su Spotify: %3$s</string>
+
+    <!-- Player & View controls -->
+    <string name="view_grid">Vista a griglia</string>
+    <string name="view_list">Vista a elenco</string>
+    <string name="player_smart_shuffle">Smart</string>
+    <string name="player_play_album">Riproduci album</string>
+
+    <!-- Playback Errors & Messages -->
+    <string name="playback_error_exoplayer_format">Errore riproduzione ExoPlayer [%1$s]: %2$s</string>
+    <string name="playback_error_no_stream">Impossibile trovare uno stream audio per \"%s\" (nessuna sorgente trovata).</string>
+    <string name="playback_error_connect_start_failed">Impossibile avviare riproduzione su Spotify Connect</string>
+    <string name="playback_error_spotify_app_remote_format">Spotify App Remote: %s</string>
 </resources>

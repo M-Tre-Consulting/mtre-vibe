@@ -222,7 +222,7 @@ fun LibraryScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.GridView,
-                            contentDescription = "Grid View",
+                            contentDescription = stringResource(com.vibe.core.ui.R.string.view_grid),
                             tint = if (isGridView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -233,7 +233,7 @@ fun LibraryScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ViewList,
-                            contentDescription = "List View",
+                            contentDescription = stringResource(com.vibe.core.ui.R.string.view_list),
                             tint = if (!isGridView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )

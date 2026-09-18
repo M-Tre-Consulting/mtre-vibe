@@ -191,7 +191,7 @@ fun AlbumScreen(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.Shuffle,
-                                        contentDescription = "Shuffle",
+                                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_shuffle),
                                         tint = shuffleTint,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -222,12 +222,12 @@ fun AlbumScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = "Smart Shuffle (AI)",
+                                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_smart_shuffle),
                                         tint = smartShuffleTint,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = "Smart",
+                                        text = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_smart_shuffle),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = smartShuffleTint
@@ -256,7 +256,7 @@ fun AlbumScreen(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = if (repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                                        contentDescription = "Repeat",
+                                        contentDescription = androidx.compose.ui.res.stringResource(com.vibe.core.ui.R.string.player_repeat),
                                         tint = repeatTint,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -274,7 +274,10 @@ fun AlbumScreen(
                         ) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = "Play Album",
+                                contentDescription = androidx.compose.ui.res.stringResource(
+                                    if (isPlaying) com.vibe.core.ui.R.string.player_pause
+                                    else com.vibe.core.ui.R.string.player_play_album
+                                ),
                                 modifier = Modifier.size(28.dp)
                             )
                         }

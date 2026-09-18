@@ -44,11 +44,11 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {}
 ) {
     var selectedCategory by remember { mutableStateOf(0) }
-    val greeting = remember {
+    val greetingRes = remember {
         when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-            in 5..12 -> "Buongiorno"
-            in 13..17 -> "Buon pomeriggio"
-            else -> "Buonasera"
+            in 5..12 -> com.vibe.core.ui.R.string.home_greeting_morning
+            in 13..17 -> com.vibe.core.ui.R.string.home_greeting_afternoon
+            else -> com.vibe.core.ui.R.string.home_greeting_evening
         }
     }
 
@@ -69,7 +69,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = greeting,
+                    text = stringResource(greetingRes),
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -133,8 +133,14 @@ fun HomeScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Tutto", "Musica", "Podcast").forEachIndexed { index, cat ->
+                val categoryResIds = listOf(
+                    com.vibe.core.ui.R.string.home_filter_all,
+                    com.vibe.core.ui.R.string.home_filter_music,
+                    com.vibe.core.ui.R.string.home_filter_podcasts
+                )
+                categoryResIds.forEachIndexed { index, resId ->
                     val isSelected = selectedCategory == index
+                    val cat = stringResource(resId)
                     Surface(
                         shape = CircleShape,
                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -210,7 +216,7 @@ fun HomeScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    "${playlist.totalTracks} brani",
+                                    stringResource(com.vibe.core.ui.R.string.library_tracks_count, playlist.totalTracks),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1

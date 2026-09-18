@@ -245,7 +245,7 @@ class RoutingAudioPlayerImpl(
                                 switchToExoPlayer()
                                 exoPlayer.playTrack(track, emptyList())
                             } else {
-                                _errorEvents.emit("Spotify App Remote: $errMsg")
+                                _errorEvents.emit(context.getString(UiR.string.playback_error_spotify_app_remote_format, errMsg))
                             }
                         }
                     } else if (settings.autoFallbackEnabled) {

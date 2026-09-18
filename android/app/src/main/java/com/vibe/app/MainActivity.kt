@@ -985,7 +985,12 @@ class MainActivity : ComponentActivity() {
                                             putExtra(android.content.Intent.EXTRA_SUBJECT, track.name)
                                             putExtra(
                                                 android.content.Intent.EXTRA_TEXT,
-                                                "Ascolta \"${track.name}\" di ${track.artists.firstOrNull()?.name ?: ""} su Spotify: https://open.spotify.com/track/${track.id}"
+                                                getString(
+                                                    com.vibe.core.ui.R.string.share_track_format,
+                                                    track.name,
+                                                    track.artists.firstOrNull()?.name ?: "",
+                                                    "https://open.spotify.com/track/${track.id}"
+                                                )
                                             )
                                         }
                                         startActivity(android.content.Intent.createChooser(shareIntent, track.name))

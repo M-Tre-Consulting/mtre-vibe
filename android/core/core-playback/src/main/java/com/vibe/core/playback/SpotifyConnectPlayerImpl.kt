@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
  */
 class SpotifyConnectPlayerImpl(
     val apiService: SpotifyApiService,
+    private val context: android.content.Context? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 ) : VibeAudioPlayer {
 
@@ -140,10 +141,14 @@ class SpotifyConnectPlayerImpl(
             syncRemotePlaybackState()
             Result.success(Unit)
         } else {
-            val errMsg = res.exceptionOrNull()?.message ?: "Impossibile avviare riproduzione su Spotify Connect"
+            val defaultErr = context?.getString(com.vibe.core.ui.R.string.playback_error_connect_start_failed)
+                ?: "Unable to start Spotify Connect playback"
+            val errMsg = res.exceptionOrNull()?.message ?: defaultErr
             Log.e(TAG, "Failed to start Connect playback on device '$targetDev': $errMsg")
             _playbackState.update { it.copy(lastErrorMessage = errMsg) }
-            _errorEvents.emit("Errore Spotify Connect: $errMsg")
+            val formattedMsg = context?.getString(com.vibe.core.ui.R.string.playback_error_connect_format, errMsg)
+                ?: "Spotify Connect error: $errMsg"
+            _errorEvents.emit(formattedMsg)
             Result.failure(Exception(errMsg))
         }
     }

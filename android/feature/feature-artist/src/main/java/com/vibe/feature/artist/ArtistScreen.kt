@@ -37,7 +37,7 @@ fun ArtistScreen(
     onSwipeToQueue: ((Track) -> Unit)? = null,
     onTrackOptions: ((Track) -> Unit)? = null
 ) {
-    var discographyFilter by remember { mutableStateOf("Albums") }
+    var selectedDiscographyIndex by remember { mutableIntStateOf(0) }
 
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
@@ -153,8 +153,8 @@ fun ArtistScreen(
                     filterResIds.forEachIndexed { index, resId ->
                         val label = androidx.compose.ui.res.stringResource(resId)
                         SegmentedButton(
-                            selected = discographyFilter == label,
-                            onClick = { discographyFilter = label },
+                            selected = selectedDiscographyIndex == index,
+                            onClick = { selectedDiscographyIndex = index },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = filterResIds.size)
                         ) {
                             Text(label)
@@ -165,9 +165,9 @@ fun ArtistScreen(
             }
 
             item {
-                val displayedAlbums = when (discographyFilter) {
-                    "Albums" -> artist.albums
-                    "EPs & Singles" -> artist.singlesAndEps
+                val displayedAlbums = when (selectedDiscographyIndex) {
+                    0 -> artist.albums
+                    1 -> artist.singlesAndEps
                     else -> artist.compilations
                 }
 

@@ -207,4 +207,30 @@
     <string name="playlist_owner_you">You</string>
     <string name="generic_error_format">Error: %s</string>
     <string name="invalid_client_id">Invalid Client ID</string>
+
+    <!-- Greetings -->
+    <string name="home_greeting_morning">Good morning</string>
+    <string name="home_greeting_afternoon">Good afternoon</string>
+    <string name="home_greeting_evening">Good evening</string>
+
+    <!-- Home filter pills -->
+    <string name="home_filter_all">All</string>
+    <string name="home_filter_music">Music</string>
+    <string name="home_filter_podcasts">Podcasts</string>
+
+    <!-- Playlist & Track info format -->
+    <string name="playlist_by_owner_songs_count">By %1$s • %2$d songs</string>
+    <string name="share_track_format">Listen to \"%1$s\" by %2$s on Spotify: %3$s</string>
+
+    <!-- Player & View controls -->
+    <string name="view_grid">Grid View</string>
+    <string name="view_list">List View</string>
+    <string name="player_smart_shuffle">Smart</string>
+    <string name="player_play_album">Play Album</string>
+
+    <!-- Playback Errors & Messages -->
+    <string name="playback_error_exoplayer_format">ExoPlayer playback error [%1$s]: %2$s</string>
+    <string name="playback_error_no_stream">Could not find an audio stream for \"%s\" (no source found).</string>
+    <string name="playback_error_connect_start_failed">Unable to start Spotify Connect playback</string>
+    <string name="playback_error_spotify_app_remote_format">Spotify App Remote: %s</string>
 </resources>

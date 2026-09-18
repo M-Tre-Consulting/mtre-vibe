@@ -541,7 +541,7 @@ private fun SearchResultsView(
                         Column {
                             Text(playlist.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                "By ${playlist.ownerName} • ${playlist.totalTracks} songs",
+                                stringResource(com.vibe.core.ui.R.string.playlist_by_owner_songs_count, playlist.ownerName, playlist.totalTracks),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
