@@ -8,6 +8,7 @@ object SpotifyAuthConfig {
     const val TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"
 
     val DEFAULT_SCOPES = listOf(
+        "app-remote-control",
         "streaming",
         "user-read-playback-state",
         "user-modify-playback-state",
